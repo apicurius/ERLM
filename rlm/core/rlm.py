@@ -129,9 +129,7 @@ class RLM:
                 other_backends = [backend]
                 other_backend_kwargs = [dict(backend_kwargs or {})]
             else:
-                other_backend_kwargs = [
-                    dict(kw or {}) for kw in (other_backend_kwargs or [{}])
-                ]
+                other_backend_kwargs = [dict(kw or {}) for kw in (other_backend_kwargs or [{}])]
             first = dict(other_backend_kwargs[0])
             existing = dict(first.get("sampling_args") or {})
             existing.update(sub_sampling_args)

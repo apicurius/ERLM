@@ -97,7 +97,9 @@ class OpenAIClient(BaseLM):
             extra_body["usage"] = {"include": True}
 
         response = self.client.chat.completions.create(
-            model=model, messages=messages, extra_body=extra_body,
+            model=model,
+            messages=messages,
+            extra_body=extra_body,
             **_normalize_sampling_args(self.sampling_args),
         )
         self._track_cost(response, model)
@@ -122,7 +124,9 @@ class OpenAIClient(BaseLM):
             extra_body["usage"] = {"include": True}
 
         response = await self.async_client.chat.completions.create(
-            model=model, messages=messages, extra_body=extra_body,
+            model=model,
+            messages=messages,
+            extra_body=extra_body,
             **_normalize_sampling_args(self.sampling_args),
         )
         self._track_cost(response, model)
