@@ -1,0 +1,176 @@
+# Efficient RLM training/eval suite with source-traced user_prologues.
+# Install env package first:
+#   uv pip install -e training/environments/rlm_eval_suite
+# Then launch:
+#   RLM_TRAIN_EXEC_TIMEOUT_S=180 uv run rl @ training/configs/rlm-qwen3-30b-efficient-eval-suite.toml
+#
+# Evidence:
+# - HF README lines 31, 35, 39-44, 124-128 mention per-env prologues,
+#   "Plan before you act" hint, and four eval environments.
+# - PrimeIntellect-ai/research-environments Alex commits add rlm_oolong,
+#   rlm_oolong_pairs, rlm_longbenchpro; this local package ports the OOLONG and
+#   OOLONG-Pairs prologues/instructions into alexzhang13/rlm's RLMTrainEnv.
+# - All FOUR HF-picture eval environments are now wired as local RLMTrainEnv
+#   ports under training/environments/rlm_eval_suite:
+#     rlm-oolong-local (trec_coarse @132k), rlm-oolong-pairs-local (@32k),
+#     rlm-browsecomp-plus-local (Tevatron/browsecomp-plus evidence docs),
+#     rlm-longbench-codeqa-local (THUDM/LongBench-v2 Code Repository Understanding).
+#   Caveats (see notes/prologue-environment-trace.md): BrowseComp-Plus uses a
+#   deterministic Exact-Answer match proxy instead of the released HLE/LLM judge
+#   (the verbatim grader prompt is preserved in the env for a judge swap-in);
+#   LongBench-v2 CodeQA is a clean 4-choice MCQ scored by exact letter match.
+
+output_dir = "outputs/rlm-qwen3-30b-efficient-eval-suite"
+max_steps = 200
+seq_len = 8192
+
+[model]
+name = "Qwen/Qwen3-30B-A3B-Instruct-2507"
+
+[wandb]
+project = "rlm-qwen3-30b"
+name = "qwen3-30b-efficient-eval-suite"
+
+[deployment]
+gpus_per_node = 8
+num_train_gpus = 4
+num_infer_gpus = 4
+
+[trainer]
+
+[trainer.model]
+fused_lm_head_token_chunk_size = "auto"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[trainer.model.ac]
+mode = "full"
+freq = 1
+
+[trainer.model.lora]
+rank = 32
+alpha = 64
+dropout = 0.0
+target_modules = ["q_proj", "k_proj", "v_proj", "o_proj"]
+
+[trainer.ckpt]
+interval = 20
+keep_interval = 20
+
+[trainer.optim]
+lr = 5e-5
+
+[inference]
+gpu_memory_utilization = 0.80
+
+[inference.model]
+max_model_len = 16384
+enforce_eager = false
+
+[inference.parallel]
+tp = 2
+dp = 2
+
+[orchestrator]
+batch_size = 32
+rollouts_per_example = 8
+
+[[orchestrator.filters]]
+type = "repetition"
+enforce = true
+window = 3000
+prob_threshold = 0.99
+
+[[orchestrator.filters]]
+type = "zero_advantage"
+enforce = true
+
+[orchestrator.ckpt]
+interval = 20
+keep_interval = 20
+
+[orchestrator.train.sampling]
+max_completion_tokens = 4096
+extra_body = { enable_thinking = false }
+
+# Training: OOLONG-Spam split mentioned in the X thread, with source-traced
+# OOLONG user_prologue from Prime research env + LMxLM.
+[[orchestrator.train.env]]
+id = "rlm-oolong-local"
+name = "rlm-oolong-spam-train"
+ratio = 1.0
+
+[orchestrator.train.env.args]
+dataset_name = "spam"
+context_len = [32768, 65536]
+filter_numerical = true
+num_examples = -1
+max_iterations = 20
+sub_max_tokens = 4096
+min_iterations = 2
+min_subcall = 0
+
+[orchestrator.eval]
+interval = 20
+eval_base_model = true
+num_examples = 25
+rollouts_per_example = 1
+
+[orchestrator.eval.sampling]
+max_completion_tokens = 4096
+extra_body = { enable_thinking = false }
+
+# HF image: OOLONG trec_coarse @ 132k (n=50).
+[[orchestrator.eval.env]]
+id = "rlm-oolong-local"
+name = "rlm-oolong-trec-coarse-132k-eval"
+num_examples = 50
+rollouts_per_example = 1
+
+[orchestrator.eval.env.args]
+dataset_name = "trec_coarse"
+context_len = 131072
+filter_numerical = false
+num_examples = 50
+max_iterations = 20
+sub_max_tokens = 4096
+
+# HF image: OOLONG-Pairs @ 32k (n=20).
+[[orchestrator.eval.env]]
+id = "rlm-oolong-pairs-local"
+name = "rlm-oolong-pairs-32k-eval"
+num_examples = 20
+rollouts_per_example = 1
+
+[orchestrator.eval.env.args]
+context_len = 32768
+num_examples = 20
+max_iterations = 20
+sub_max_tokens = 4096
+
+# HF image: BrowseComp-Plus test (n=150, k=50 documents).
+[[orchestrator.eval.env]]
+id = "rlm-browsecomp-plus-local"
+name = "rlm-browsecomp-plus-eval"
+num_examples = 150
+rollouts_per_example = 1
+
+[orchestrator.eval.env.args]
+num_examples = 150
+k = 50
+reward_mode = "judge"
+judge_model = "openai/gpt-4.1"  # BrowseComp-Plus paper: Accuracy uses a GPT-4.1 LLM judge
+max_iterations = 20
+sub_max_tokens = 4096
+
+# HF image: LongBenchv2 Code repo QA (n=50).
+[[orchestrator.eval.env]]
+id = "rlm-longbench-codeqa-local"
+name = "rlm-longbench-codeqa-eval"
+num_examples = 50
+rollouts_per_example = 1
+
+[orchestrator.eval.env.args]
+num_examples = 50
+max_iterations = 20
+sub_max_tokens = 4096

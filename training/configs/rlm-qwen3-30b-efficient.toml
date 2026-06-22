@@ -1,0 +1,161 @@
+# Efficient RLM — RL training config (UPSTREAM-ONLY knobs)
+# =========================================================
+# Replicated from the upstream harness at HEAD (alexzhang13/rlm @ 156fd72):
+#   - training/configs/rlm-qwen3-30b-example.toml  (verified prime-rl schema)
+#   - training/environments/oolong/oolong/env.py   (load_environment args)
+#   - training/src/rlm_train/{env,rubric}.py       (RLMTrainEnv / RLMTrainRubric)
+#   - rlm/utils/prompts.py                          (ORCHESTRATOR_ADDENDUM)
+#
+# IMPORTANT: This config deliberately uses ONLY parameters that exist in
+# upstream code. The reward is upstream-stock correctness (R = c). The local
+# working tree adds cost-shaping reward knobs (subcall_penalty_rate,
+# free_context_reads, per_call_tokens) and cost-v1/v2 configs — those are NOT
+# upstream and are intentionally not used here.
+#
+# "Efficiency" here is achieved exactly the way the paper/upstream achieve it:
+# (1) the orchestrator system-prompt addendum that enforces batching discipline
+#     and forbids tiny-prompt mega-batches (rlm/utils/prompts.py), kept ON via
+#     RLMTrainEnv's default orchestrator=True;
+# (2) non-thinking sampling + a hard output-token cap, so rollouts cannot burn
+#     their budget on reasoning tokens;
+# (3) a bounded iteration count + a per-REPL-block wall-clock guard
+#     (RLM_TRAIN_EXEC_TIMEOUT_S, read by training/src/rlm_train/worker.py) to
+#     kill runaway sequential sub-call loops;
+# (4) min_iterations/min_subcall telemetry for premature-final/subcall usage;
+#     note upstream oolong does not expose gate_reward, so these are not reward
+#     gates unless upstream code is changed.
+# See notes/efficient-rlm-replication.md for the failure-case -> lever mapping.
+#
+# Launch (with prime-rl installed and this env wired in; see training/README.md):
+#   RLM_TRAIN_EXEC_TIMEOUT_S=180 uv run rl @ training/configs/rlm-qwen3-30b-efficient.toml
+
+output_dir = "outputs/rlm-qwen3-30b-efficient"
+max_steps = 200
+seq_len = 8192
+
+[model]
+# Base of the released RLM-Qwen3-30B-A3B-v0.1 adapter (mit-oasys). The paper's
+# negative results note small/low-coding models (e.g. Qwen3-8B) struggle as
+# RLMs, so this replicates the 30B-A3B MoE base, not an 8B.
+name = "Qwen/Qwen3-30B-A3B-Instruct-2507"
+
+[wandb]
+project = "rlm-qwen3-30b"
+name = "qwen3-30b-efficient"
+
+[deployment]
+gpus_per_node = 8
+num_train_gpus = 4
+num_infer_gpus = 4
+
+[trainer]
+
+[trainer.model]
+fused_lm_head_token_chunk_size = "auto"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[trainer.model.ac]
+mode = "full"
+freq = 1
+
+[trainer.model.lora]
+# Author parity with the released adapter (adapter_config.json on
+# mit-oasys/rlm-qwen3-30b-a3b-v0.1): rank 32, alpha 64, attention projections.
+rank = 32
+alpha = 64
+dropout = 0.0
+target_modules = ["q_proj", "k_proj", "v_proj", "o_proj"]
+
+[trainer.ckpt]
+interval = 20
+keep_interval = 20
+
+[trainer.optim]
+lr = 5e-5
+
+[inference]
+gpu_memory_utilization = 0.80
+
+[inference.model]
+max_model_len = 16384
+enforce_eager = false
+
+[inference.parallel]
+tp = 2
+dp = 2
+
+[orchestrator]
+batch_size = 32
+rollouts_per_example = 8
+
+[[orchestrator.filters]]
+type = "repetition"
+enforce = true
+window = 3000
+prob_threshold = 0.99
+
+[[orchestrator.filters]]
+type = "zero_advantage"
+enforce = true
+
+[orchestrator.ckpt]
+interval = 20
+keep_interval = 20
+
+[orchestrator.train.sampling]
+# Non-thinking + hard output cap: replicates the paper's mitigation for
+# "thinking models without sufficient output tokens struggle as RLMs"
+# (Appendix B) — rollouts can't exhaust their budget on reasoning tokens.
+max_completion_tokens = 4096
+extra_body = { enable_thinking = false }
+
+[[orchestrator.train.env]]
+id = "oolong"
+name = "oolong-spam-train"
+ratio = 1.0
+
+[orchestrator.train.env.args]
+# All keys below are upstream load_environment() parameters (oolong/env.py).
+dataset_name = "spam"
+min_ctx = 32768
+max_ctx = 65536
+exclude_numeric = true
+num_examples = -1
+# Bounded turn budget: caps the "exploding sub-call cost" / runaway sequential
+# loop failure mode (paper §7 + Appendix B). The orchestrator addendum's
+# batching discipline does the per-turn work; this bounds total turns.
+max_iterations = 20
+sub_max_tokens = 4096
+# Telemetry threshold only in upstream oolong: upstream passes min_iterations to
+# RLMTrainRubric, but does NOT set gate_reward=True, so reward remains R=c.
+# Use rlm_below_min_iterations/gated_reward metrics to monitor premature FINAL.
+min_iterations = 2
+min_subcall = 0
+
+[orchestrator.eval]
+interval = 20
+eval_base_model = true
+num_examples = 25
+rollouts_per_example = 1
+
+[orchestrator.eval.sampling]
+max_completion_tokens = 4096
+extra_body = { enable_thinking = false }
+
+# Held-out generalization: train on spam 32k-65k, evaluate on a DIFFERENT task
+# family (trec_coarse) at a LARGER context (131k) — the paper's evidence that
+# RLM training generalizes across length and task (§4, Obs. 6).
+[[orchestrator.eval.env]]
+id = "oolong"
+name = "oolong-trec-coarse-eval"
+num_examples = 25
+rollouts_per_example = 1
+
+[orchestrator.eval.env.args]
+dataset_name = "trec_coarse"
+min_ctx = 131072
+max_ctx = 131072
+num_examples = 25
+max_iterations = 20
+sub_max_tokens = 4096
