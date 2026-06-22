@@ -1,0 +1,209 @@
+# RLM scaffold THESIS config — correct-first, efficiency-second (R = c·(1+λ·e)).
+# =============================================================================
+# This is the TREATMENT arm for the stronger thesis in THESIS.md. It is the
+# efficient eval-suite config with two deliberate changes:
+#   (1) train on a multi-env split (OOLONG-Spam + BrowseComp-Plus), matching the
+#       public description of Alex's released run better than OOLONG-only;
+#   (2) turn on opt-in, correctness-gated efficiency reward (`shaping_coef > 0`)
+#       for both train envs.
+# Everything else — model, LoRA, caps, eval suite, sampling, filters — remains
+# aligned with rlm-qwen3-30b-efficient-eval-suite.toml so the control/treatment
+# A/B is interpretable.
+#
+# CONTROL arm: set `shaping_coef = 0.0` below (or just launch the
+# rlm-qwen3-30b-efficient-eval-suite.toml config). At shaping_coef=0 the reward
+# is byte-identical to the authors' correctness-only R = c.
+#
+# Requires the eval-suite env package:
+#   uv pip install -e training/environments/rlm_eval_suite
+# Launch:
+#   RLM_TRAIN_EXEC_TIMEOUT_S=180 uv run rl @ training/configs/rlm-qwen3-30b-thesis.toml
+
+output_dir = "outputs/rlm-qwen3-30b-thesis"
+max_steps = 200
+seq_len = 8192
+
+[model]
+name = "Qwen/Qwen3-30B-A3B-Instruct-2507"
+
+[wandb]
+project = "rlm-qwen3-30b"
+name = "qwen3-30b-thesis-shaped"
+
+[deployment]
+gpus_per_node = 8
+num_train_gpus = 4
+num_infer_gpus = 4
+
+[trainer]
+
+[trainer.model]
+fused_lm_head_token_chunk_size = "auto"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[trainer.model.ac]
+mode = "full"
+freq = 1
+
+[trainer.model.lora]
+rank = 32
+alpha = 64
+dropout = 0.0
+target_modules = ["q_proj", "k_proj", "v_proj", "o_proj"]
+
+[trainer.ckpt]
+interval = 20
+keep_interval = 20
+
+[trainer.optim]
+lr = 5e-5
+
+[inference]
+gpu_memory_utilization = 0.80
+
+[inference.model]
+max_model_len = 16384
+enforce_eager = false
+
+[inference.parallel]
+tp = 2
+dp = 2
+
+[orchestrator]
+batch_size = 32
+rollouts_per_example = 8
+
+[[orchestrator.filters]]
+type = "repetition"
+enforce = true
+window = 3000
+prob_threshold = 0.99
+
+[[orchestrator.filters]]
+type = "zero_advantage"
+enforce = true
+
+[orchestrator.ckpt]
+interval = 20
+keep_interval = 20
+
+[orchestrator.train.sampling]
+max_completion_tokens = 4096
+extra_body = { enable_thinking = false }
+
+# Training: equal-weight OOLONG-Spam + BrowseComp-Plus split.
+# prime-rl treats `ratio` as a relative sampling weight; all train envs set it.
+[[orchestrator.train.env]]
+id = "rlm-oolong-local"
+name = "rlm-oolong-spam-train-shaped"
+ratio = 0.5
+
+[orchestrator.train.env.args]
+dataset_name = "spam"
+context_len = [32768, 65536]
+filter_numerical = true
+num_examples = -1
+max_iterations = 20
+sub_max_tokens = 4096
+min_iterations = 2
+min_subcall = 0
+# --- THESIS knobs (the only behavioral difference vs. the efficient config) ---
+# shaping_coef = 0.0 -> exactly R = c (control). > 0 -> R = c·(1+λ·e) (treatment).
+shaping_coef = 0.2
+# Bonus only applies to fully-correct rollouts; efficiency is a tie-breaker.
+correct_threshold = 1.0
+# Efficiency axes (fewer-is-better). The turns axis uses max_iterations as its
+# budget automatically; set sub-call / token budgets here to enable those axes.
+subcall_budget = 64.0
+token_budget = 200000.0
+iteration_weight = 1.0
+subcall_weight = 1.0
+token_weight = 1.0
+
+[[orchestrator.train.env]]
+id = "rlm-browsecomp-plus-local"
+name = "rlm-browsecomp-plus-train-shaped"
+ratio = 0.5
+
+[orchestrator.train.env.args]
+num_examples = 150
+k = 50
+reward_mode = "judge"
+judge_model = "openai/gpt-4.1"
+max_iterations = 20
+sub_max_tokens = 4096
+min_iterations = 2
+min_subcall = 0
+# Same thesis knobs as OOLONG: efficiency is a tie-breaker among judge-correct rollouts.
+shaping_coef = 0.2
+correct_threshold = 1.0
+subcall_budget = 64.0
+token_budget = 200000.0
+iteration_weight = 1.0
+subcall_weight = 1.0
+token_weight = 1.0
+
+[orchestrator.eval]
+interval = 20
+eval_base_model = true
+num_examples = 25
+rollouts_per_example = 1
+
+[orchestrator.eval.sampling]
+max_completion_tokens = 4096
+extra_body = { enable_thinking = false }
+
+# Eval suite is UNSHAPED on purpose: evals must measure correctness (P1) and
+# trajectory cost (P2/P3) under the stock R = c, so the shaped train reward is
+# never allowed to inflate reported accuracy.
+[[orchestrator.eval.env]]
+id = "rlm-oolong-local"
+name = "rlm-oolong-trec-coarse-132k-eval"
+num_examples = 50
+rollouts_per_example = 1
+
+[orchestrator.eval.env.args]
+dataset_name = "trec_coarse"
+context_len = 131072
+filter_numerical = false
+num_examples = 50
+max_iterations = 20
+sub_max_tokens = 4096
+
+[[orchestrator.eval.env]]
+id = "rlm-oolong-pairs-local"
+name = "rlm-oolong-pairs-32k-eval"
+num_examples = 20
+rollouts_per_example = 1
+
+[orchestrator.eval.env.args]
+context_len = 32768
+num_examples = 20
+max_iterations = 20
+sub_max_tokens = 4096
+
+[[orchestrator.eval.env]]
+id = "rlm-browsecomp-plus-local"
+name = "rlm-browsecomp-plus-eval"
+num_examples = 150
+rollouts_per_example = 1
+
+[orchestrator.eval.env.args]
+num_examples = 150
+k = 50
+reward_mode = "judge"
+judge_model = "openai/gpt-4.1"
+max_iterations = 20
+sub_max_tokens = 4096
+
+[[orchestrator.eval.env]]
+id = "rlm-longbench-codeqa-local"
+name = "rlm-longbench-codeqa-eval"
+num_examples = 50
+rollouts_per_example = 1
+
+[orchestrator.eval.env.args]
+num_examples = 50
+max_iterations = 20
+sub_max_tokens = 4096

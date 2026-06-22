@@ -23,7 +23,7 @@ build-backend = "hatchling.build"
 packages = ["rlm_eval_suite"]
 
 [project.entry-points."verifiers.environments"]
-rlm-oolong-local = "rlm_eval_suite:load_oolong_environment"
-rlm-oolong-pairs-local = "rlm_eval_suite:load_oolong_pairs_environment"
-rlm-browsecomp-plus-local = "rlm_eval_suite:load_browsecomp_plus_environment"
-rlm-longbench-codeqa-local = "rlm_eval_suite:load_longbench_codeqa_environment"
+rlm-oolong-local = "rlm_eval_suite.oolong:load_oolong_environment"
+rlm-oolong-pairs-local = "rlm_eval_suite.oolong:load_oolong_pairs_environment"
+rlm-browsecomp-plus-local = "rlm_eval_suite.browsecomp_plus:load_browsecomp_plus_environment"
+rlm-longbench-codeqa-local = "rlm_eval_suite.longbench_codeqa:load_longbench_codeqa_environment"

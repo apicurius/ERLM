@@ -34,6 +34,7 @@ class RLMTrainRubric(vf.Rubric):
         self.add_metric(self.rlm_iterations)
         self.add_metric(self.rlm_repl_calls)
         self.add_metric(self.rlm_sub_llm_calls)
+        self.add_metric(self.rlm_sub_llm_tokens)
         self.add_metric(self.rlm_has_final_answer)
         self.add_metric(self.rlm_below_min_iterations)
         self.add_metric(self.rlm_below_min_subcall)
@@ -97,6 +98,9 @@ class RLMTrainRubric(vf.Rubric):
 
     async def rlm_sub_llm_calls(self, state: State) -> int:
         return int(state.get("rlm_sub_llm_calls") or 0)
+
+    async def rlm_sub_llm_tokens(self, state: State) -> int:
+        return int(state.get("rlm_sub_llm_tokens") or 0)
 
     async def rlm_has_final_answer(self, state: State) -> int:
         return 1 if state.get("rlm_final_answer") else 0

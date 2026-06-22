@@ -20,6 +20,20 @@ model-card eval picture, traced from:
 
 These environments adapt the Prime sandbox style (`/workspace/context.txt`, `/task/answer.txt`) to the upstream `alexzhang13/rlm` training harness, which exposes `context` directly in the REPL and terminates by setting `answer["content"]` and `answer["ready"] = True`.
 
+## Package layout
+
+The environments are intentionally split by task family rather than kept in one
+large `envs.py` module:
+
+- `rlm_eval_suite/oolong.py` — `rlm-oolong-local` and `rlm-oolong-pairs-local`.
+- `rlm_eval_suite/browsecomp_plus.py` — `rlm-browsecomp-plus-local`.
+- `rlm_eval_suite/longbench_codeqa.py` — `rlm-longbench-codeqa-local`.
+- `rlm_eval_suite/common.py` — shared reward construction helpers.
+- `rlm_eval_suite/envs.py` — compatibility re-exports for older imports.
+
+The `pyproject.toml` entry points target these separated modules directly, so
+prime-rl/verifiers can load each env ID independently.
+
 ## Environment IDs (one per HF-picture eval environment)
 
 - `rlm-oolong-local`: OOLONG synth tasks; official OOLONG scoring port. HF eval: `trec_coarse @132k (n=50)`.
@@ -33,6 +47,16 @@ These environments adapt the Prime sandbox style (`/workspace/context.txt`, `/ta
 ### Small-model k=50 consistency
 
 For this Qwen3-30B / small-model train+eval setup, `rlm-browsecomp-plus-local` defaults to `k=50`, and the config uses `k=50`. Do not use the RLM paper's `k=1000` BrowseComp+ stress setting for this run unless creating a separate large-context replication config.
+
+### Opt-in efficiency shaping (stronger thesis)
+
+Every loader accepts opt-in `shaping_coef` / `correct_threshold` /
+`subcall_budget` / `token_budget` / `*_weight` kwargs. With `shaping_coef=0`
+(the default) each env uses the stock correctness-only `RLMTrainRubric`
+(`R = c`). With `shaping_coef>0` it uses `EfficiencyGatedRubric`, which adds a
+bounded, correctness-gated efficiency bonus `R = c·(1 + λ·e)` to correct
+rollouts only. See the repo-root `THESIS.md` and
+`training/configs/rlm-qwen3-30b-thesis.toml` for the control/treatment setup.
 
 ### Scoring fidelity caveats
 

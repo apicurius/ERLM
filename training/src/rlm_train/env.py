@@ -9,8 +9,6 @@ from collections.abc import Callable
 from typing import Any
 
 import verifiers as vf
-from verifiers.types import Messages, State
-
 from rlm.utils.parsing import find_code_blocks
 from rlm.utils.prompts import (
     RLM_SYSTEM_PROMPT,
@@ -18,6 +16,8 @@ from rlm.utils.prompts import (
     build_rlm_system_prompt,
     build_user_prompt,
 )
+from verifiers.types import Messages, State
+
 from rlm_train.proxy import ClientHandle, SubLLMProxy
 from rlm_train.repl.base import ExecResult, ReplBackend
 from rlm_train.repl.subprocess import SubprocessReplBackend
@@ -115,9 +115,7 @@ class RLMTrainEnv(vf.MultiTurnEnv):
                 client=state["client"],
                 model=self._sub_model or state["model"],
                 sampling_args=self._sub_sampling_args,
-                record_call=lambda meta: state.update(
-                    {"rlm_sub_llm_calls": int(state.get("rlm_sub_llm_calls") or 0) + 1}
-                ),
+                record_call=lambda meta: _record_sub_call(state, meta),
                 fake_query=self._sub_llm_fn,
                 fake_query_batched=self._sub_llm_fn_batched,
                 state_ref=state,
@@ -147,6 +145,7 @@ class RLMTrainEnv(vf.MultiTurnEnv):
         state["rlm_iterations"] = 0
         state["rlm_repl_calls"] = 0
         state["rlm_sub_llm_calls"] = 0
+        state["rlm_sub_llm_tokens"] = 0
         state["rlm_final_answer"] = None
         state["rlm_context_count"] = 1
         state["rlm_final_repl_outputs"] = []
@@ -241,6 +240,28 @@ class RLMTrainEnv(vf.MultiTurnEnv):
     @vf.teardown
     async def teardown_rlm(self) -> None:
         await self._teardown_proxy()
+
+
+def _record_sub_call(state: State, meta: Any) -> None:
+    """Telemetry-only sub-LLM accounting.
+
+    Increments the sub-LLM call counter and, when the proxy reports token usage
+    in ``meta['usage']``, accumulates total sub-LLM tokens. This is pure
+    monitoring: it does NOT change the upstream correctness-only reward. The
+    optional efficiency-shaping rubric reads these counters but is opt-in.
+    """
+    state["rlm_sub_llm_calls"] = int(state.get("rlm_sub_llm_calls") or 0) + 1
+    usage = meta.get("usage") if isinstance(meta, dict) else None
+    if isinstance(usage, dict):
+        tokens = usage.get("total_tokens")
+        if tokens is None:
+            prompt_tokens = usage.get("prompt_tokens") or 0
+            completion_tokens = usage.get("completion_tokens") or 0
+            tokens = int(prompt_tokens) + int(completion_tokens)
+        try:
+            state["rlm_sub_llm_tokens"] = int(state.get("rlm_sub_llm_tokens") or 0) + int(tokens)
+        except (TypeError, ValueError):
+            pass
 
 
 def _normalize_for_api(msgs: list) -> list:
