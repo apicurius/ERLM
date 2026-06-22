@@ -249,12 +249,19 @@ fallback-hit rate as reward hacking, not progress.
 - `training/environments/rlm_*_local/` — the four standalone per-env packages;
   each `env.py` `load_environment` accepts opt-in `shaping_coef` / budget /
   weight kwargs via `_build_rubric`; default is the stock correctness-only rubric.
-- `training/configs/rlm-qwen3-30b-thesis.toml` — paired control/treatment
-  config: equal-weight prime-rl multi-env training over OOLONG-Spam and
-  BrowseComp-Plus, with `shaping_coef` enabled for both train envs. Set both
-  `shaping_coef` values to `0.0` for the correctness-only control.
+- `training/configs/rlm-qwen3-30b-thesis.toml` — **treatment** arm:
+  equal-weight prime-rl multi-env training over OOLONG-Spam and BrowseComp-Plus,
+  with `shaping_coef` enabled for both train envs.
+- `training/configs/rlm-qwen3-30b-thesis-control.toml` — **control** arm: a
+  faithful λ=0 twin (same base model, data, compute, train-env mix, sampling,
+  caps, and eval suite) with both `shaping_coef = 0.0`, so the only difference is
+  the reward knob. Launch this vs. the treatment for the clean A/B; do not
+  substitute the single-env efficient-eval-suite config (it changes the training
+  distribution).
 - `tools/validate_thesis_shaping.py` — proves the invariants above
-  (parity, dominance, monotonicity, boundedness, gating).
+  (parity, dominance, monotonicity, boundedness, gating) and enforces that the
+  control config is a faithful twin of the treatment (only the reward knob and
+  run-identity labels may differ).
 
 ## What this does NOT claim
 

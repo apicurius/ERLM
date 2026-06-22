@@ -1,22 +1,20 @@
-# RLM scaffold THESIS config — correct-first, efficiency-second (R = c·(1+λ·e)).
+# RLM scaffold THESIS config — CONTROL arm (λ=0, correctness-only R = c).
 # =============================================================================
-# This is the TREATMENT arm for the stronger thesis in THESIS.md. It is the
-# efficient eval-suite config with two deliberate changes:
-#   (1) train on a multi-env split (OOLONG-Spam + BrowseComp-Plus), matching the
-#       public description of Alex's released run better than OOLONG-only;
-#   (2) turn on opt-in, correctness-gated efficiency reward (`shaping_coef > 0`)
-#       for both train envs.
-# Everything else — model, LoRA, caps, eval suite, sampling, filters — remains
-# aligned with rlm-qwen3-30b-efficient-eval-suite.toml so the control/treatment
-# A/B is interpretable.
+# This is the CONTROL arm for the stronger thesis in THESIS.md, and the clean
+# A/B counterpart to rlm-qwen3-30b-thesis.toml (the TREATMENT). It is a faithful
+# twin of the treatment: SAME base model, LoRA, optimizer, caps, sampling,
+# filters, the SAME multi-env training split (OOLONG-Spam + BrowseComp-Plus at
+# equal 0.5/0.5 ratio), and the SAME unshaped four-env eval suite. The ONLY
+# intended difference is the reward knob: both train envs set
+# `shaping_coef = 0.0`, so the reward is exactly the authors' correctness-only
+# R = c (the efficiency bonus is disabled).
 #
-# CONTROL arm: launch rlm-qwen3-30b-thesis-control.toml, a faithful twin of this
-# config with both `shaping_coef = 0.0` (reward is byte-identical to the authors'
-# correctness-only R = c). It keeps the SAME OOLONG-Spam + BrowseComp-Plus 0.5/0.5
-# training split, so the A/B differs only in the reward knob. (Setting both
-# shaping_coef = 0.0 inline below is equivalent.) Do NOT use the single-env
-# efficient-eval-suite config as the control — it changes the training
-# distribution and confounds the comparison.
+# Use this with rlm-qwen3-30b-thesis.toml as the A/B pair: identical training
+# DISTRIBUTION, identical everything except λ. (Do NOT use
+# rlm-qwen3-30b-efficient-eval-suite.toml as the control — it trains a single
+# OOLONG-Spam env at ratio 1.0, which changes the training data distribution and
+# confounds the reward comparison.) The invariant "control == treatment except
+# the shaping knobs" is enforced by tools/validate_thesis_shaping.py.
 #
 # Requires the eval-suite env packages (one dir per env, like oolong/):
 #   uv pip install -e training/environments/oolong \
@@ -24,9 +22,9 @@
 #                  -e training/environments/browsecomp_plus \
 #                  -e training/environments/longbench_codeqa
 # Launch:
-#   RLM_TRAIN_EXEC_TIMEOUT_S=180 uv run rl @ training/configs/rlm-qwen3-30b-thesis.toml
+#   RLM_TRAIN_EXEC_TIMEOUT_S=180 uv run rl @ training/configs/rlm-qwen3-30b-thesis-control.toml
 
-output_dir = "outputs/rlm-qwen3-30b-thesis"
+output_dir = "outputs/rlm-qwen3-30b-thesis-control"
 max_steps = 200
 seq_len = 8192
 
@@ -35,7 +33,7 @@ name = "Qwen/Qwen3-30B-A3B-Instruct-2507"
 
 [wandb]
 project = "rlm-qwen3-30b"
-name = "qwen3-30b-thesis-shaped"
+name = "qwen3-30b-thesis-control"
 
 [deployment]
 gpus_per_node = 8
@@ -103,7 +101,7 @@ extra_body = { enable_thinking = false }
 # prime-rl treats `ratio` as a relative sampling weight; all train envs set it.
 [[orchestrator.train.env]]
 id = "oolong"
-name = "rlm-oolong-spam-train-shaped"
+name = "rlm-oolong-spam-train-control"
 ratio = 0.5
 
 [orchestrator.train.env.args]
@@ -117,7 +115,7 @@ min_iterations = 2
 min_subcall = 0
 # --- THESIS knobs (the only behavioral difference vs. the efficient config) ---
 # shaping_coef = 0.0 -> exactly R = c (control). > 0 -> R = c·(1+λ·e) (treatment).
-shaping_coef = 0.2
+shaping_coef = 0.0
 # Bonus only applies to fully-correct rollouts; efficiency is a tie-breaker.
 correct_threshold = 1.0
 # Efficiency axes (fewer-is-better). The turns axis uses max_iterations as its
@@ -130,7 +128,7 @@ token_weight = 1.0
 
 [[orchestrator.train.env]]
 id = "browsecomp_plus"
-name = "rlm-browsecomp-plus-train-shaped"
+name = "rlm-browsecomp-plus-train-control"
 ratio = 0.5
 
 [orchestrator.train.env.args]
@@ -143,7 +141,7 @@ sub_max_tokens = 4096
 min_iterations = 2
 min_subcall = 0
 # Same thesis knobs as OOLONG: efficiency is a tie-breaker among judge-correct rollouts.
-shaping_coef = 0.2
+shaping_coef = 0.0
 correct_threshold = 1.0
 subcall_budget = 64.0
 token_budget = 200000.0

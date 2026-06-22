@@ -44,6 +44,41 @@ load_longbench_codeqa_environment = _lbv2.load_environment
 
 THESIS = ROOT / "THESIS.md"
 CONFIG = ROOT / "training/configs/rlm-qwen3-30b-thesis.toml"
+CONTROL = ROOT / "training/configs/rlm-qwen3-30b-thesis-control.toml"
+
+# The control config must be a faithful twin of the treatment: identical in every
+# parsed field EXCEPT the reward knob and run-identity labels below. If anyone
+# edits one config (e.g. changes the eval suite or LoRA rank) without mirroring it
+# in the other, the A/B is confounded — this set is what is allowed to differ.
+_CONTROL_ALLOWED_DIFFS = {
+    "output_dir",
+    "wandb.name",
+    "orchestrator.train.env[0].name",
+    "orchestrator.train.env[1].name",
+    "orchestrator.train.env[0].args.shaping_coef",
+    "orchestrator.train.env[1].args.shaping_coef",
+}
+
+
+def _flatten(obj, prefix: str = "") -> dict[str, object]:
+    """Flatten nested dict/list TOML data to {dotted.path[i]: leaf_value}."""
+    out: dict[str, object] = {}
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            out.update(_flatten(v, f"{prefix}.{k}" if prefix else str(k)))
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            out.update(_flatten(v, f"{prefix}[{i}]"))
+    else:
+        out[prefix] = obj
+    return out
+
+
+def _config_diff_keys(a: dict, b: dict) -> set[str]:
+    """Leaf paths whose values differ or are present in only one config."""
+    fa, fb = _flatten(a), _flatten(b)
+    keys = set(fa) | set(fb)
+    return {k for k in keys if fa.get(k) != fb.get(k)}
 
 
 def _correct(value: float):
@@ -117,6 +152,36 @@ def main() -> int:
     }
     checks["config_eval_unshaped"] = bool(eval_envs) and not any(
         "shaping_coef" in e.get("args", {}) for e in eval_envs
+    )
+
+    # --- Control config: a faithful λ=0 twin of the treatment (clean A/B) ------
+    control_cfg = tomllib.loads(CONTROL.read_text()) if CONTROL.exists() else {}
+    control_train = control_cfg.get("orchestrator", {}).get("train", {}).get("env", [])
+    control_eval = control_cfg.get("orchestrator", {}).get("eval", {}).get("env", [])
+    checks["control_config_exists"] = CONTROL.exists()
+    checks["control_trains_same_split_as_treatment"] = (
+        {e.get("id") for e in control_train} == train_ids
+        and sorted(float(e.get("ratio", 0.0)) for e in control_train)
+        == sorted(float(e.get("ratio", 0.0)) for e in train_envs)
+    )
+    checks["control_is_unshaped"] = bool(control_train) and all(
+        float(e.get("args", {}).get("shaping_coef", 0.0)) == 0.0 for e in control_train
+    )
+    checks["control_eval_includes_all_four_envs"] = {e.get("id") for e in control_eval} == {
+        "oolong",
+        "oolong_pairs",
+        "browsecomp_plus",
+        "longbench_codeqa",
+    }
+    # Drift guard: the ONLY parsed differences between treatment and control must
+    # be the reward knob + run-identity labels in _CONTROL_ALLOWED_DIFFS.
+    diff_keys = _config_diff_keys(cfg, control_cfg) if (cfg and control_cfg) else {"<missing>"}
+    checks["control_is_faithful_twin"] = diff_keys <= _CONTROL_ALLOWED_DIFFS
+    # And the difference must actually flip shaping_coef from >0 (treatment) to 0.
+    checks["control_actually_flips_shaping_coef"] = bool(control_train) and all(
+        float(t.get("args", {}).get("shaping_coef", 0.0)) > 0.0
+        and float(c.get("args", {}).get("shaping_coef", 0.0)) == 0.0
+        for t, c in zip(train_envs, control_train, strict=False)
     )
 
     # Loaders expose the opt-in knob.

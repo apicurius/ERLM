@@ -45,9 +45,17 @@ it away — and this branch operationalizes it:
   cost.
 - The four per-env loaders take opt-in `shaping_coef` / budget / weight
   kwargs; default behavior is unchanged (stock correctness-only rubric).
-- `training/configs/rlm-qwen3-30b-thesis.toml` — treatment arm: equal
+- `training/configs/rlm-qwen3-30b-thesis.toml` — **treatment** arm: equal
   prime-rl ratio split between OOLONG-Spam and BrowseComp-Plus, with
-  `shaping_coef>0`; set both `shaping_coef` values to `0.0` for the control.
+  `shaping_coef>0`.
+- `training/configs/rlm-qwen3-30b-thesis-control.toml` — **control** arm: a
+  faithful λ=0 twin of the treatment (identical model/LoRA/optim/caps/sampling/
+  filters, the same OOLONG-Spam + BrowseComp-Plus 0.5/0.5 split, and the same
+  unshaped four-env eval suite) with both `shaping_coef = 0.0`. This is the clean
+  A/B counterpart — do **not** use the single-env `efficient-eval-suite.toml` as
+  the control (it changes the training distribution). The
+  "control == treatment except the shaping knobs" invariant is enforced by
+  `tools/validate_thesis_shaping.py`.
   Verified against local prime-rl: `TrainSource` treats `ratio` as relative
   sampling weights, so `[0.5, 0.5]` and `[1.0, 1.0]` are equivalent equal
   splits when all train envs set `ratio`.
