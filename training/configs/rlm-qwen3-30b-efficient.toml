@@ -116,20 +116,21 @@ name = "oolong-spam-train"
 ratio = 1.0
 
 [orchestrator.train.env.args]
-# All keys below are upstream load_environment() parameters (oolong/env.py).
+# All keys below are oolong load_environment() parameters (oolong/oolong/env.py).
 dataset_name = "spam"
-min_ctx = 32768
-max_ctx = 65536
-exclude_numeric = true
+context_len = [32768, 65536]
+filter_numerical = true
 num_examples = -1
 # Bounded turn budget: caps the "exploding sub-call cost" / runaway sequential
 # loop failure mode (paper §7 + Appendix B). The orchestrator addendum's
 # batching discipline does the per-turn work; this bounds total turns.
 max_iterations = 20
 sub_max_tokens = 4096
-# Telemetry threshold only in upstream oolong: upstream passes min_iterations to
-# RLMTrainRubric, but does NOT set gate_reward=True, so reward remains R=c.
-# Use rlm_below_min_iterations/gated_reward metrics to monitor premature FINAL.
+# Telemetry threshold: min_iterations is passed to RLMTrainRubric for monitoring
+# only. This config leaves efficiency shaping OFF (shaping_coef unset -> 0), so
+# the reward stays stock R=c. Use rlm_below_min_iterations/gated_reward metrics to
+# monitor premature FINAL. (To enable R=c·(1+λ·e), set shaping_coef>0 — see
+# rlm-qwen3-30b-thesis.toml.)
 min_iterations = 2
 min_subcall = 0
 
@@ -154,8 +155,8 @@ rollouts_per_example = 1
 
 [orchestrator.eval.env.args]
 dataset_name = "trec_coarse"
-min_ctx = 131072
-max_ctx = 131072
+context_len = 131072
+filter_numerical = false
 num_examples = 25
 max_iterations = 20
 sub_max_tokens = 4096

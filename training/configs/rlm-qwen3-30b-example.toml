@@ -81,9 +81,8 @@ ratio = 1.0
 
 [orchestrator.train.env.args]
 dataset_name = "spam"
-min_ctx = 32768
-max_ctx = 65536
-exclude_numeric = true
+context_len = [32768, 65536]
+filter_numerical = true
 num_examples = -1
 max_iterations = 20
 sub_max_tokens = 4096
@@ -108,8 +107,8 @@ rollouts_per_example = 1
 
 [orchestrator.eval.env.args]
 dataset_name = "trec_coarse"
-min_ctx = 131072
-max_ctx = 131072
+context_len = 131072
+filter_numerical = false
 num_examples = 25
 max_iterations = 20
 sub_max_tokens = 4096

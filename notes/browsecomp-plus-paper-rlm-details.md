@@ -58,7 +58,7 @@ These are **not the same BrowseComp+ input size**:
 - HF `mit-oasys/rlm-qwen3-30b-a3b-v0.1` README/eval image: `BrowseComp-Plus test`
   with **n=150, k=50 documents**.
 
-So the local `rlm-browsecomp-plus-local` environment in this repo defaults to the
+So the local `browsecomp_plus` environment in this repo defaults to the
 HF eval / small-model setting (`num_examples=150`, `k=50`) for both train and eval when BCP is used,
 not the RLM paper's GPT-5 `1K documents` setting. A separate `k=1000` config would be
 needed to reproduce the RLM paper's main BCP experiment, and it must include distractor
@@ -68,7 +68,7 @@ padding from the full 100k-doc corpus.
 
 Changes made after reading both papers:
 
-1. `rlm-browsecomp-plus-local` now preserves document IDs/URLs in each context string:
+1. `browsecomp_plus` now preserves document IDs/URLs in each context string:
    `DOCID: ...\nURL: ...\nTEXT: ...`, so the model can cite evidence docs as the
    BrowseComp+ paper prompt expects.
 2. BrowseComp+ eval config now explicitly uses:

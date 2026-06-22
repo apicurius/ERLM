@@ -21,15 +21,16 @@ multi-env scaffold-training thesis config.
 
 Implication for ERLM:
 
-- We preserve verifiers env IDs (`rlm-oolong-local`, `rlm-browsecomp-plus-local`,
-  etc.) via package entry points, but the package now points those IDs directly
-  to separated modules:
-  - `rlm_eval_suite.oolong:load_oolong_environment`
-  - `rlm_eval_suite.oolong:load_oolong_pairs_environment`
-  - `rlm_eval_suite.browsecomp_plus:load_browsecomp_plus_environment`
-  - `rlm_eval_suite.longbench_codeqa:load_longbench_codeqa_environment`
-- `rlm_eval_suite/envs.py` remains as a compatibility re-export layer for older
-  imports and validators.
+- We preserve verifiers env IDs (`oolong`, `browsecomp_plus`,
+  etc.) via package entry points. Each env is now its own standalone package
+  (one dir per env under `training/environments/`, mirroring `oolong/`), and
+  each ID maps to that package's single `load_environment`:
+  - `oolong:load_environment`
+  - `oolong_pairs:load_environment`
+  - `browsecomp_plus:load_environment`
+  - `longbench_codeqa:load_environment`
+- There is no longer a shared `rlm_eval_suite` package; the per-env packages are
+  fully self-contained (each inlines its own `_build_rubric` helper).
 
 ## Verifiers reward / advantage behavior
 
@@ -68,8 +69,8 @@ Implication for the thesis:
 Implication for ERLM:
 
 - `training/configs/rlm-qwen3-30b-thesis.toml` uses two train envs:
-  - `rlm-oolong-local`, `ratio = 0.5`
-  - `rlm-browsecomp-plus-local`, `ratio = 0.5`
+  - `oolong`, `ratio = 0.5`
+  - `browsecomp_plus`, `ratio = 0.5`
 - This is an equal OOLONG-Spam / BrowseComp-Plus split, matching the public
   description of Alex's released run better than OOLONG-only.
 - The exact private BC+ split/sampling weights remain unknown; this config is a
@@ -91,8 +92,8 @@ Implication:
 
 ## Verified ERLM checks
 
-- `tools/validate_rlm_eval_suite.py` checks split modules exist and pyproject
-  entry points target them directly.
+- `tools/validate_rlm_eval_suite.py` checks each per-env package dir, env module,
+  `__init__`, README, and pyproject `load_environment` entry point exist.
 - `tools/validate_thesis_shaping.py` checks:
   - thesis config trains exactly OOLONG + BrowseComp+;
   - all train envs set positive ratios;

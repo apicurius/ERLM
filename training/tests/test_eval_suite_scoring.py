@@ -14,7 +14,7 @@ import base64
 import json
 
 import pytest
-from rlm_eval_suite.browsecomp_plus import (
+from browsecomp_plus.env import (
     _BCP_CANARY,
     _bcp_decrypt_string,
     _bcp_derive_key,
@@ -23,16 +23,14 @@ from rlm_eval_suite.browsecomp_plus import (
     _parse_bcp_judge_correct,
     _score_browsecomp_plus,
 )
-from rlm_eval_suite.longbench_codeqa import _extract_choice_letter, _score_longbench_codeqa
-from rlm_eval_suite.oolong import (
+from longbench_codeqa.env import _extract_choice_letter, _score_longbench_codeqa
+from oolong.env import (
     COMPARISON_PHRASES,
     _find_comparison_phrase,
     _oolong_synth_score,
-    _parse_pairs,
     _score_oolong,
-    _score_oolong_pairs,
-    _score_pairs,
 )
+from oolong_pairs.env import _parse_pairs, _score_oolong_pairs, _score_pairs
 
 
 def _run(coro):

@@ -4,16 +4,16 @@ This branch/repository is based on `alexzhang13/rlm` and adds public-source-trac
 
 Key additions:
 
-- `training/environments/rlm_eval_suite/` — local `RLMTrainEnv` ports of the four HF model-card eval environments with evidence-derived `user_prologue`s, split by source task module:
-  - `rlm_eval_suite/oolong.py` — OOLONG + OOLONG-Pairs
-  - `rlm_eval_suite/browsecomp_plus.py` — BrowseComp-Plus
-  - `rlm_eval_suite/longbench_codeqa.py` — LongBench-v2 CodeQA
-  - `rlm_eval_suite/envs.py` — backwards-compatible re-exports
-- Verifiers environment IDs:
-  - `rlm-oolong-local`
-  - `rlm-oolong-pairs-local`
-  - `rlm-browsecomp-plus-local`
-  - `rlm-longbench-codeqa-local`
+- `training/environments/` — local `RLMTrainEnv` ports of the four HF model-card
+  eval environments with evidence-derived `user_prologue`s. Each environment is
+  its own standalone verifiers package (one dir per env, mirroring the upstream
+  `oolong/` layout: `pyproject.toml` + `<pkg>/__init__.py` + `<pkg>/env.py` +
+  `README.md`, with a single `load_environment` entry point):
+  - `oolong/` (env id `oolong`) — OOLONG synth (replaces the earlier simpler
+    upstream `oolong` env; this is the fuller eval-suite port)
+  - `oolong_pairs/` (env id `oolong_pairs`) — OOLONG-Pairs
+  - `browsecomp_plus/` (env id `browsecomp_plus`) — BrowseComp-Plus
+  - `longbench_codeqa/` (env id `longbench_codeqa`) — LongBench-v2 CodeQA
 - `training/configs/rlm-qwen3-30b-efficient.toml` — upstream-only efficient config.
 - `training/configs/rlm-qwen3-30b-efficient-eval-suite.toml` — train/eval config wired to all four HF-picture eval environments.
 - `notes/` — source and paper trace notes, including HF README line-by-line findings, Alex/Prime research-environments commits, BrowseComp-Plus paper details, and claim audit.
@@ -43,7 +43,7 @@ it away — and this branch operationalizes it:
   telemetry only (no effect on the default reward); the stock rubric exposes it
   as a zero-weight metric so unshaped control/eval runs can still report token
   cost.
-- The four `rlm_eval_suite` loaders take opt-in `shaping_coef` / budget / weight
+- The four per-env loaders take opt-in `shaping_coef` / budget / weight
   kwargs; default behavior is unchanged (stock correctness-only rubric).
 - `training/configs/rlm-qwen3-30b-thesis.toml` — treatment arm: equal
   prime-rl ratio split between OOLONG-Spam and BrowseComp-Plus, with
@@ -64,6 +64,6 @@ it away — and this branch operationalizes it:
   scoring/parsing of all four eval environments (LongBench-v2 letter
   extraction, OOLONG-Pairs F1, OOLONG-synth scoring, BrowseComp-Plus answer
   extraction / canary decryption / judge parsing).
-- `training/tests/conftest.py` puts `rlm_train` and `rlm_eval_suite` on
-  `sys.path`, so the suite runs with a bare `pytest training/tests/` from the
-  repo root (no manual `PYTHONPATH`).
+- `training/tests/conftest.py` puts `rlm_train` and the four per-env eval-suite
+  packages on `sys.path`, so the suite runs with a bare `pytest training/tests/`
+  from the repo root (no manual `PYTHONPATH`).

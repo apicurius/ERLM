@@ -43,10 +43,10 @@ Key text recovered:
 - `_APPEND_SYSTEM_PROMPT_SYNTH`: final answer only to `/task/answer.txt`, short single token/word/date/label.
 - Default synth dataset after Alex commit: `trec_coarse`, context lengths `(262144, 524288)`; but HF eval table uses `trec_coarse @ 132k (n=50)`, so local eval config uses `131072` to match HF.
 
-Local adaptation in `training/environments/rlm_eval_suite/rlm_eval_suite/envs.py`:
+Local adaptation in `training/environments/oolong/oolong/env.py`:
 
 - `OOLONG_USER_PROLOGUE` ports the strategy to upstream `RLMTrainEnv`: use REPL variable `context` instead of `/workspace/context.txt`, use `llm_query_batched` instead of CLI `llm_batch`, terminate via `answer["content"]` / `answer["ready"]` instead of `/task/answer.txt`.
-- `load_oolong_environment()` builds OOLONG synth rows and uses official-style scoring.
+- `load_environment()` builds OOLONG synth rows and uses official-style scoring.
 
 ### `rlm_oolong_pairs`
 
@@ -61,7 +61,7 @@ Key text recovered:
 Local adaptation:
 
 - `OOLONG_PAIRS_USER_PROLOGUE` ports the Prime env task tips and answer format to local `RLMTrainEnv`.
-- `load_oolong_pairs_environment()` loads `mit-oasys/oolong-pairs` JSONs and streams the needed trec_coarse context from OOLONG synth to avoid materializing the full dataset.
+- `oolong_pairs` `load_environment()` loads `mit-oasys/oolong-pairs` JSONs and streams the needed trec_coarse context from OOLONG synth to avoid materializing the full dataset.
 - Scoring is precision/recall/F1 over unordered user-ID pairs; reward is F1.
 
 ## LMxLM sources used
@@ -70,14 +70,14 @@ Local repo: `/Users/oerdogan/LMxLM`.
 
 - `lmxlm/environments/lm_to_lm/oolong/description.py` and `env.py`: OOLONG question framing, TREC-coarse blurb, official scoring style, verbosity extraction.
 - `lmxlm/environments/lm_to_program/oolong_pairs/description.py` and `programs.py`: pairwise aggregation framing, A/B user-set strategy, pair output format.
-- `lmxlm/environments/lm_to_program/browsecomp_plus/*`: evidence-doc BrowseComp-Plus protocol, now ported as `rlm-browsecomp-plus-local` with the HF-card small-model setting `k=50`.
+- `lmxlm/environments/lm_to_program/browsecomp_plus/*`: evidence-doc BrowseComp-Plus protocol, now ported as `browsecomp_plus` with the HF-card small-model setting `k=50`.
 
 ## BrowseComp-Plus + LongBench-v2 CodeQA (now implemented)
 
 Both remaining HF-picture eval environments are now ported as local `RLMTrainEnv`
 environments (smoke-loaded against the real datasets).
 
-### `rlm-browsecomp-plus-local`
+### `browsecomp_plus`
 
 - Source: `Tevatron/browsecomp-plus` (the evidence-doc BrowseComp-Plus that the
   HF table refers to: `test (n=150, k=50 documents)`), matching the LMxLM
@@ -96,7 +96,7 @@ environments (smoke-loaded against the real datasets).
 - Smoke test: `num_examples=2, k=5` loaded; gold decrypted correctly (e.g.
   `Queen Marie of Romania`).
 
-### `rlm-longbench-codeqa-local`
+### `longbench_codeqa`
 
 - Source: `THUDM/LongBench-v2`, filtered to `domain == "Code Repository
   Understanding"` (`sub_domain == "Code repo QA"`) — exactly 50 examples,
@@ -110,11 +110,12 @@ environments (smoke-loaded against the real datasets).
 
 ## Created / updated artifacts
 
-- `training/environments/rlm_eval_suite/`: local env package (4 env IDs).
-- `.../rlm_eval_suite/envs.py`: `rlm-oolong-local`, `rlm-oolong-pairs-local`,
-  `rlm-browsecomp-plus-local`, `rlm-longbench-codeqa-local` loaders, each with a
-  source-traced `user_prologue`.
-- `.../pyproject.toml`: four `verifiers.environments` entry points.
+- `training/environments/oolong/`, `oolong_pairs/`,
+  `browsecomp_plus/`, `longbench_codeqa/`: four standalone
+  env packages (one per env ID), mirroring the upstream `oolong/` layout.
+- Each `<pkg>/env.py` exposes a single `load_environment` with a source-traced
+  `user_prologue`; each `pyproject.toml` declares one `verifiers.environments`
+  entry point (`<id> = "<pkg>:load_environment"`).
 - `training/configs/rlm-qwen3-30b-efficient-eval-suite.toml`: trains OOLONG-Spam
   and evaluates all FOUR HF-picture envs (OOLONG @132k n=50, OOLONG-Pairs @32k
   n=20, BrowseComp-Plus n=150 k=50, LongBench-v2 CodeQA n=50).

@@ -21,19 +21,26 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+ENVS = ROOT / "training/environments"
 sys.path[:0] = [
-    str(ROOT / "training/environments/rlm_eval_suite"),
+    str(ENVS / "oolong"),
+    str(ENVS / "oolong_pairs"),
+    str(ENVS / "browsecomp_plus"),
+    str(ENVS / "longbench_codeqa"),
     str(ROOT / "training/src"),
     str(ROOT),
 ]
 
-from rlm_eval_suite.envs import (  # noqa: E402
-    load_browsecomp_plus_environment,
-    load_longbench_codeqa_environment,
-    load_oolong_environment,
-    load_oolong_pairs_environment,
-)
+import browsecomp_plus.env as _bcp  # noqa: E402
+import longbench_codeqa.env as _lbv2  # noqa: E402
+import oolong.env as _ool  # noqa: E402
+import oolong_pairs.env as _pairs  # noqa: E402
 from rlm_train import EfficiencyGatedRubric, RLMTrainRubric  # noqa: E402
+
+load_oolong_environment = _ool.load_environment
+load_oolong_pairs_environment = _pairs.load_environment
+load_browsecomp_plus_environment = _bcp.load_environment
+load_longbench_codeqa_environment = _lbv2.load_environment
 
 THESIS = ROOT / "THESIS.md"
 CONFIG = ROOT / "training/configs/rlm-qwen3-30b-thesis.toml"
@@ -82,15 +89,15 @@ def main() -> int:
     checks["config_uses_eval_suite_env"] = bool(
         train_ids
         & {
-            "rlm-oolong-local",
-            "rlm-oolong-pairs-local",
-            "rlm-browsecomp-plus-local",
-            "rlm-longbench-codeqa-local",
+            "oolong",
+            "oolong_pairs",
+            "browsecomp_plus",
+            "longbench_codeqa",
         }
     )
     checks["config_trains_oolong_and_bcp"] = train_ids == {
-        "rlm-oolong-local",
-        "rlm-browsecomp-plus-local",
+        "oolong",
+        "browsecomp_plus",
     }
     checks["config_train_ratios_all_set"] = bool(train_envs) and all(
         float(e.get("ratio", 0.0)) > 0.0 for e in train_envs
@@ -103,10 +110,10 @@ def main() -> int:
         float(e.get("args", {}).get("shaping_coef", 0.0)) > 0.0 for e in train_envs
     )
     checks["config_eval_includes_all_four_envs"] = eval_ids == {
-        "rlm-oolong-local",
-        "rlm-oolong-pairs-local",
-        "rlm-browsecomp-plus-local",
-        "rlm-longbench-codeqa-local",
+        "oolong",
+        "oolong_pairs",
+        "browsecomp_plus",
+        "longbench_codeqa",
     }
     checks["config_eval_unshaped"] = bool(eval_envs) and not any(
         "shaping_coef" in e.get("args", {}) for e in eval_envs

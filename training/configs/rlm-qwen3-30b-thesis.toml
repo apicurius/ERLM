@@ -14,8 +14,11 @@
 # rlm-qwen3-30b-efficient-eval-suite.toml config). At shaping_coef=0 the reward
 # is byte-identical to the authors' correctness-only R = c.
 #
-# Requires the eval-suite env package:
-#   uv pip install -e training/environments/rlm_eval_suite
+# Requires the eval-suite env packages (one dir per env, like oolong/):
+#   uv pip install -e training/environments/oolong \
+#                  -e training/environments/oolong_pairs \
+#                  -e training/environments/browsecomp_plus \
+#                  -e training/environments/longbench_codeqa
 # Launch:
 #   RLM_TRAIN_EXEC_TIMEOUT_S=180 uv run rl @ training/configs/rlm-qwen3-30b-thesis.toml
 
@@ -95,7 +98,7 @@ extra_body = { enable_thinking = false }
 # Training: equal-weight OOLONG-Spam + BrowseComp-Plus split.
 # prime-rl treats `ratio` as a relative sampling weight; all train envs set it.
 [[orchestrator.train.env]]
-id = "rlm-oolong-local"
+id = "oolong"
 name = "rlm-oolong-spam-train-shaped"
 ratio = 0.5
 
@@ -122,7 +125,7 @@ subcall_weight = 1.0
 token_weight = 1.0
 
 [[orchestrator.train.env]]
-id = "rlm-browsecomp-plus-local"
+id = "browsecomp_plus"
 name = "rlm-browsecomp-plus-train-shaped"
 ratio = 0.5
 
@@ -158,7 +161,7 @@ extra_body = { enable_thinking = false }
 # trajectory cost (P2/P3) under the stock R = c, so the shaped train reward is
 # never allowed to inflate reported accuracy.
 [[orchestrator.eval.env]]
-id = "rlm-oolong-local"
+id = "oolong"
 name = "rlm-oolong-trec-coarse-132k-eval"
 num_examples = 50
 rollouts_per_example = 1
@@ -172,7 +175,7 @@ max_iterations = 20
 sub_max_tokens = 4096
 
 [[orchestrator.eval.env]]
-id = "rlm-oolong-pairs-local"
+id = "oolong_pairs"
 name = "rlm-oolong-pairs-32k-eval"
 num_examples = 20
 rollouts_per_example = 1
@@ -184,7 +187,7 @@ max_iterations = 20
 sub_max_tokens = 4096
 
 [[orchestrator.eval.env]]
-id = "rlm-browsecomp-plus-local"
+id = "browsecomp_plus"
 name = "rlm-browsecomp-plus-eval"
 num_examples = 150
 rollouts_per_example = 1
@@ -198,7 +201,7 @@ max_iterations = 20
 sub_max_tokens = 4096
 
 [[orchestrator.eval.env]]
-id = "rlm-longbench-codeqa-local"
+id = "longbench_codeqa"
 name = "rlm-longbench-codeqa-eval"
 num_examples = 50
 rollouts_per_example = 1

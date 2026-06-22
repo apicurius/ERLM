@@ -246,9 +246,9 @@ fallback-hit rate as reward hacking, not progress.
 - `training/src/rlm_train/env.py` — accumulates `rlm_sub_llm_tokens` from proxy
   usage as **telemetry only** (no effect on `R = c`). `RLMTrainRubric` exposes
   that telemetry as a zero-weight metric even for unshaped control/eval runs.
-- `training/environments/rlm_eval_suite/.../envs.py` — all four loaders accept
-  opt-in `shaping_coef` / budget / weight kwargs via `_build_rubric`; default is
-  the stock correctness-only rubric.
+- `training/environments/rlm_*_local/` — the four standalone per-env packages;
+  each `env.py` `load_environment` accepts opt-in `shaping_coef` / budget /
+  weight kwargs via `_build_rubric`; default is the stock correctness-only rubric.
 - `training/configs/rlm-qwen3-30b-thesis.toml` — paired control/treatment
   config: equal-weight prime-rl multi-env training over OOLONG-Spam and
   BrowseComp-Plus, with `shaping_coef` enabled for both train envs. Set both

@@ -1,4 +1,10 @@
-"""LongBench-v2 Code Repository Understanding local RLMTrainEnv environment."""
+"""LongBench-v2 Code Repository Understanding QA (eval-suite port).
+
+Source: THUDM/LongBench-v2 filtered to domain == "Code Repository
+Understanding" (exactly 50 examples). 4-choice MCQ (gold = letter A/B/C/D), so
+scoring is deterministic (no judge). The long repo context is exposed as the
+REPL variable `context`; the model finalizes via answer["content"]/answer["ready"].
+"""
 
 from __future__ import annotations
 
@@ -11,18 +17,8 @@ import verifiers as vf
 from datasets import Dataset, load_dataset
 
 import rlm_train
-from rlm_eval_suite.common import PLAN_HINT, build_rubric
 
-# ===========================================================================
-# LongBench-v2 Code Repository Understanding local env.
-#
-# HF eval picture: "LongBenchv2 Code repo QA (n=50)".
-# Source: THUDM/LongBench-v2, filtered to domain == "Code Repository
-# Understanding" (sub_domain "Code repo QA") — exactly 50 examples. This is a
-# 4-choice MCQ (choice_A..D, gold answer is a letter A/B/C/D), so scoring is
-# deterministic (no judge needed). The long repo context is exposed as the REPL
-# variable `context`; the model finalizes via answer["content"]/answer["ready"].
-# ===========================================================================
+PLAN_HINT = "Plan before you act."
 
 LONGBENCH_CODE_DOMAIN = "Code Repository Understanding"
 
@@ -36,6 +32,45 @@ Task-specific LongBench-v2 Code-Repository-QA guidance:
 - Final answer format: output ONLY the single letter of the correct choice: A, B, C, or D.
 - When ready, set `answer["content"]` to that single letter and then `answer["ready"] = True`.
 """
+
+
+def _build_rubric(
+    correctness: Any,
+    *,
+    min_iterations: int,
+    min_subcall: int,
+    max_iterations: int,
+    shaping_coef: float = 0.0,
+    correct_threshold: float = 1.0,
+    subcall_budget: float = 0.0,
+    token_budget: float = 0.0,
+    iteration_weight: float = 1.0,
+    subcall_weight: float = 1.0,
+    token_weight: float = 1.0,
+) -> vf.Rubric:
+    """Stock correctness-only rubric unless opt-in efficiency shaping is enabled."""
+
+    if shaping_coef and shaping_coef > 0.0:
+        return rlm_train.EfficiencyGatedRubric(
+            correctness=correctness,
+            weight=1.0,
+            min_iterations=min_iterations,
+            min_subcall=min_subcall,
+            shaping_coef=shaping_coef,
+            correct_threshold=correct_threshold,
+            max_iterations=max_iterations,
+            subcall_budget=subcall_budget,
+            token_budget=token_budget,
+            iteration_weight=iteration_weight,
+            subcall_weight=subcall_weight,
+            token_weight=token_weight,
+        )
+    return rlm_train.RLMTrainRubric(
+        correctness=correctness,
+        weight=1.0,
+        min_iterations=min_iterations,
+        min_subcall=min_subcall,
+    )
 
 
 def _extract_choice_letter(output: str) -> str:
@@ -102,7 +137,7 @@ def _build_longbench_codeqa_dataset(
     return Dataset.from_list(out)
 
 
-def load_longbench_codeqa_environment(
+def load_environment(
     *,
     num_examples: int = 50,
     seed: int = 42,
@@ -122,7 +157,7 @@ def load_longbench_codeqa_environment(
     **kwargs: Any,
 ) -> vf.Environment:
     dataset = _build_longbench_codeqa_dataset(num_examples=num_examples, seed=seed, shuffle=shuffle)
-    rubric = build_rubric(
+    rubric = _build_rubric(
         _score_longbench_codeqa,
         min_iterations=min_iterations,
         min_subcall=min_subcall,
@@ -144,3 +179,5 @@ def load_longbench_codeqa_environment(
         **kwargs,
     )
 
+
+__all__ = ["load_environment", "LONGBENCH_CODE_DOMAIN", "LONGBENCH_CODEQA_USER_PROLOGUE"]

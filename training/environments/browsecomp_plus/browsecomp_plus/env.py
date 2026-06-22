@@ -1,4 +1,12 @@
-"""BrowseComp-Plus local RLMTrainEnv environment."""
+"""BrowseComp-Plus evidence-document deep-research QA (eval-suite port).
+
+Source-traced from PrimeIntellect-ai/research-environments `rlm_browsecomp`
+(simple-evals Explanation/Exact Answer/Confidence format + HLE grader) and the
+LMxLM `lm_to_program/browsecomp_plus` evidence-doc setting. Evidence docs are
+exposed as the REPL variable `context` (list[str]); the model finalizes via
+answer["content"]/answer["ready"]. Default reward is an LLM judge (released
+metric); a deterministic Exact-Answer match proxy is available as a fallback.
+"""
 
 from __future__ import annotations
 
@@ -13,28 +21,8 @@ import verifiers as vf
 from datasets import Dataset, load_dataset
 
 import rlm_train
-from rlm_eval_suite.common import PLAN_HINT, build_rubric
 
-# ===========================================================================
-# BrowseComp-Plus local env.
-#
-# HF eval picture: "BrowseComp-Plus test (n=150, k=50 documents)".
-# Source-traced from:
-#   - PrimeIntellect-ai/research-environments/environments/rlm_browsecomp
-#     (QUERY_TEMPLATE + APPEND_SYSTEM_PROMPT: simple-evals
-#      Explanation / Exact Answer / Confidence format; HLE-style judge).
-#   - LMxLM lm_to_program/browsecomp_plus (evidence-doc setting:
-#     Tevatron/browsecomp-plus, k docs/query, gold->evidence->negatives).
-#
-# Adaptation to upstream RLMTrainEnv: the evidence docs are exposed as the REPL
-# variable `context` (a list[str]), and the model finalizes via
-# answer["content"]/answer["ready"] instead of /task/answer.txt. The HF run
-# graded with an HLE/LLM judge; this LOCAL port scores deterministically by
-# extracting the "Exact Answer:" line and doing a normalized match/containment
-# against gold (documented proxy — see notes/prologue-environment-trace.md).
-# The simple-evals answer FORMAT and the HLE grader prompt are preserved
-# verbatim so a judge-backed rubric can be swapped in later.
-# ===========================================================================
+PLAN_HINT = "Plan before you act."
 
 # Public canary from the Tevatron/browsecomp-plus dataset card (XOR key seed).
 _BCP_CANARY = (
@@ -86,6 +74,45 @@ correct: Answer 'yes' if extracted_final_answer matches the [correct_answer] giv
 
 confidence: The extracted confidence score between 0% and 100% from [response]. Put 100 if there is no confidence score available.
 """.strip()
+
+
+def _build_rubric(
+    correctness: Any,
+    *,
+    min_iterations: int,
+    min_subcall: int,
+    max_iterations: int,
+    shaping_coef: float = 0.0,
+    correct_threshold: float = 1.0,
+    subcall_budget: float = 0.0,
+    token_budget: float = 0.0,
+    iteration_weight: float = 1.0,
+    subcall_weight: float = 1.0,
+    token_weight: float = 1.0,
+) -> vf.Rubric:
+    """Stock correctness-only rubric unless opt-in efficiency shaping is enabled."""
+
+    if shaping_coef and shaping_coef > 0.0:
+        return rlm_train.EfficiencyGatedRubric(
+            correctness=correctness,
+            weight=1.0,
+            min_iterations=min_iterations,
+            min_subcall=min_subcall,
+            shaping_coef=shaping_coef,
+            correct_threshold=correct_threshold,
+            max_iterations=max_iterations,
+            subcall_budget=subcall_budget,
+            token_budget=token_budget,
+            iteration_weight=iteration_weight,
+            subcall_weight=subcall_weight,
+            token_weight=token_weight,
+        )
+    return rlm_train.RLMTrainRubric(
+        correctness=correctness,
+        weight=1.0,
+        min_iterations=min_iterations,
+        min_subcall=min_subcall,
+    )
 
 
 def _bcp_derive_key(password: str, length: int) -> bytes:
@@ -299,7 +326,7 @@ def _build_browsecomp_plus_dataset(
     return Dataset.from_list(out)
 
 
-def load_browsecomp_plus_environment(
+def load_environment(
     *,
     num_examples: int = 150,
     k: int = 50,
@@ -326,7 +353,7 @@ def load_browsecomp_plus_environment(
         if reward_mode == "judge"
         else _score_browsecomp_plus
     )
-    rubric = build_rubric(
+    rubric = _build_rubric(
         correctness,
         min_iterations=min_iterations,
         min_subcall=min_subcall,
@@ -349,3 +376,9 @@ def load_browsecomp_plus_environment(
     )
 
 
+__all__ = [
+    "load_environment",
+    "BROWSECOMP_ANSWER_FORMAT",
+    "BROWSECOMP_GRADER_TEMPLATE",
+    "BROWSECOMP_PLUS_USER_PROLOGUE",
+]
