@@ -75,7 +75,7 @@ def main() -> int:
             "pairs_has_plan_hint": "Plan before you act" in OOLONG_PAIRS_USER_PROLOGUE,
             "pairs_mentions_pair_format": "(user_id_1, user_id_2)" in OOLONG_PAIRS_USER_PROLOGUE,
             "bcp_has_plan_hint": "Plan before you act" in BROWSECOMP_PLUS_USER_PROLOGUE,
-            "bcp_mentions_exact_answer": "Exact Answer" in BROWSECOMP_PLUS_USER_PROLOGUE,
+            "bcp_clean_answer_instruction": "succinct answer" in BROWSECOMP_PLUS_USER_PROLOGUE,
             "lbv2_has_plan_hint": "Plan before you act" in LONGBENCH_CODEQA_USER_PROLOGUE,
             "lbv2_mentions_letter_format": "A, B, C, or D" in LONGBENCH_CODEQA_USER_PROLOGUE,
             "config_mentions_all_four_env_ids": not missing,

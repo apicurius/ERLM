@@ -4,8 +4,10 @@ BrowseComp-Plus evidence-document deep-research QA wired through `RLMTrainEnv`.
 
 - **Env id:** `browsecomp_plus`
 - **Data:** `Tevatron/browsecomp-plus` (decrypted via the public canary),
-  `k` docs/query (HF eval picture: `test (n=150, k=50 documents)`).
-- **Answer format:** simple-evals `Explanation / Exact Answer / Confidence`.
+  `k` **text-only** docs/query (matches LMxLM `evidence_docs`; HF eval picture:
+  `test (n=150, k=50 documents)`).
+- **Answer format:** clean final answer (LMxLM — no imposed Explanation/Confidence
+  format; the `is_correct` judge compares it directly to the gold answer).
 - **Scoring:** `reward_mode="judge"` (default) reproduces the released metric
   using the **verbatim LMxLM / BrowseComp-Plus judge** (`BROWSECOMP_PLUS_JUDGE_PROMPT`,
   binary `is_correct` JSON verdict — the reference uses `gpt-5-nano`, we default to
@@ -14,9 +16,9 @@ BrowseComp-Plus evidence-document deep-research QA wired through `RLMTrainEnv`.
 - **Source trace:** PrimeIntellect-ai/research-environments `rlm_browsecomp` +
   LMxLM `lm_to_program/browsecomp_plus`.
 
-The evidence docs are exposed as the REPL variable `context` (a `list[str]`);
-the model finalizes by setting `answer["content"]` to the full
-Explanation/Exact Answer/Confidence block and `answer["ready"] = True`.
+The evidence docs are exposed as the REPL variable `context` (a `list[str]` of
+raw document text); the model finalizes by setting `answer["content"]` to ONLY
+its clean final answer and `answer["ready"] = True`.
 
 ### Small-model k=50 consistency
 

@@ -50,28 +50,24 @@ _BCP_CANARY = (
 )
 _BCP_UNENCRYPTED_ROW_KEYS = frozenset({"query_id"})
 
-# simple-evals BrowseComp answer format (verbatim from the Prime rlm_browsecomp
-# QUERY_TEMPLATE / openai simple-evals browsecomp_eval.py).
+# LMxLM BrowseComp-Plus expects a clean final answer (no imposed Explanation/
+# Exact-Answer/Confidence format); the is_correct judge compares it directly to
+# the gold answer.
 BROWSECOMP_ANSWER_FORMAT = (
-    "Your response should be in the following format:\n"
-    "Explanation: {your explanation for your final answer}\n"
-    "Exact Answer: {your succinct, final answer}\n"
-    "Confidence: {your confidence score between 0% and 100% for your answer}"
+    "Provide ONLY your final answer to the query: a single succinct answer "
+    "string, with no explanation, confidence, or extra commentary."
 )
 
 BROWSECOMP_PLUS_USER_PROLOGUE = f"""{PLAN_HINT}
 
-CONTEXT BUDGET (critical — your model window is only ~16k tokens): the `context` list of documents lives in the REPL and is far larger than your window. NEVER print, paste, or echo raw documents or chunks into REPL output or your messages — REPL outputs are fed back to you and accumulate, so big prints overflow the window and waste the rollout. Print ONLY tiny results (a DOCID, a count, the few facts you need); keep every printed output under ~400 characters and every ```repl``` block short. Pass documents as ARGUMENTS to `llm_query_batched` (never print them). Finish in as few turns as possible: plan -> one or two batched sub-LLM passes over packed docs -> synthesize -> finalize.
+CONTEXT BUDGET (critical — your model window is only ~16k tokens): the `context` list of documents lives in the REPL and is far larger than your window. NEVER print, paste, or echo raw documents or chunks into REPL output or your messages — REPL outputs are fed back to you and accumulate, so big prints overflow the window and waste the rollout. Print ONLY tiny results (a count, the few facts you need); keep every printed output under ~400 characters and every ```repl``` block short. Pass documents as ARGUMENTS to `llm_query_batched` (never print them). Finish in as few turns as possible: plan -> one or two batched sub-LLM passes over packed docs -> synthesize -> finalize.
 
-Task-specific BrowseComp-Plus guidance (adapted from PrimeIntellect-ai/research-environments rlm_browsecomp and LMxLM browsecomp_plus):
-- This is an evidence-document deep-research QA task. The REPL variable `context` is a Python list of evidence document strings (a shuffled mix of gold, supporting, and hard-negative docs). Do not paste all docs into the REPL at once.
+Task-specific BrowseComp-Plus guidance (adapted from LMxLM browsecomp_plus):
+- This is an evidence-document deep-research QA task. The REPL variable `context` is a Python list of evidence document strings (the raw text of a shuffled mix of gold, supporting, and hard-negative docs). Do not paste all docs into the REPL at once.
 - Strategy: scan/filter docs for relevance with chunky `llm_query_batched` calls, then synthesize an evidence-grounded answer. Avoid one-subcall-per-doc loops; pack multiple docs per sub-prompt.
-- Reason over the retrieved evidence; cite the specific facts that determine the answer. Each document string includes a DOCID and optional URL, so cite DOCIDs in the Explanation when possible.
-- Final answer format (simple-evals BrowseComp):
-    Explanation: <your reasoning>
-    Exact Answer: <your succinct, final answer>
-    Confidence: <0% to 100%>
-- When ready, set `answer["content"]` to that full Explanation/Exact Answer/Confidence block and then `answer["ready"] = True`.
+- Reason over the retrieved evidence to determine the single correct answer.
+- Final answer: ONLY a single succinct answer string — no explanation, no confidence, no extra commentary (an independent LLM judge compares it directly to the gold answer).
+- When ready, set `answer["content"]` to ONLY that final answer and then `answer["ready"] = True`.
 """
 
 # LM-as-a-judge prompt — VERBATIM from the LMxLM / BrowseComp-Plus reference
@@ -333,16 +329,9 @@ def _bcp_sample_docs(row: dict[str, Any], k: int, rng: random.Random) -> list[st
             picked.append(d if isinstance(d, dict) else {"text": str(d)})
             remaining -= 1
     rng.shuffle(picked)
-    docs: list[str] = []
-    for d in picked:
-        docid = str(d.get("docid", ""))
-        url = str(d.get("url", ""))
-        text = str(d.get("text", ""))
-        header = f"DOCID: {docid}" if docid else "DOCID: unknown"
-        if url:
-            header += f"\nURL: {url}"
-        docs.append(f"{header}\nTEXT:\n{text}")
-    return docs
+    # Text-only evidence docs, matching LMxLM browsecomp_plus: evidence_docs are
+    # the raw document text (no DOCID/URL headers). Leaner -> less window pressure.
+    return [str(d.get("text", "")) for d in picked]
 
 
 def _build_browsecomp_plus_dataset(
