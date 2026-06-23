@@ -2,7 +2,7 @@
 # BrowseComp judged by gpt-4.1. Faithful to rlm-qwen3-30b-thesis.toml except:
 # max_steps=15, A40 inference (tp=4/dp=1, util 0.90, enforce_eager), 4-env HF eval suite (trec@132k, pairs@32k, browsecomp k50, longbench).
 output_dir = "/home/omeerdogan23/ERLM/outputs/pilot-l02"
-max_steps = 15
+max_steps = 10
 seq_len = 8192
 
 [model]
@@ -35,8 +35,8 @@ dropout = 0.0
 target_modules = ["q_proj", "k_proj", "v_proj", "o_proj"]
 
 [trainer.ckpt]
-interval = 15
-keep_interval = 15
+interval = 10
+keep_interval = 10
 
 [trainer.ckpt.weights]
 save_adapter_separately = true
@@ -73,8 +73,8 @@ type = "zero_advantage"
 enforce = true
 
 [orchestrator.ckpt]
-interval = 15
-keep_interval = 15
+interval = 10
+keep_interval = 10
 
 [orchestrator.train.sampling]
 max_completion_tokens = 4096
@@ -125,7 +125,7 @@ subcall_weight = 1.0
 token_weight = 1.0
 
 [orchestrator.eval]
-interval = 15
+interval = 10
 skip_first_step = false
 num_examples = 20
 group_size = 1
