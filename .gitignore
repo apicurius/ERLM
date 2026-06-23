@@ -213,3 +213,15 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Local prime_run comparison / borrow analysis (references external, all-rights-reserved
+# lsteno/prime_run; internal-only, keep out of the public repo)
+notes/prime_run-borrow-and-thesis-analysis.md
+
+# Firecrawl and PDF research scratch artifacts
+.firecrawl/
+tmp/pdfs/
+
+# cluster run outputs (logs may contain secrets; checkpoints are large)
+outputs/
+*.key

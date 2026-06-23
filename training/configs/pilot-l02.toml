@@ -1,0 +1,189 @@
+# PILOT (treatment, lambda=0.2): A40-tuned 15-step thesis A/B. Spam+BrowseComp 0.5/0.5,
+# BrowseComp judged by gpt-4.1. Faithful to rlm-qwen3-30b-thesis.toml except:
+# max_steps=15, A40 inference (tp=4/dp=1, util 0.90, enforce_eager), 4-env HF eval suite (trec@132k, pairs@32k, browsecomp k50, longbench).
+output_dir = "/home/omeerdogan23/ERLM/outputs/pilot-l02"
+max_steps = 15
+seq_len = 8192
+
+[model]
+name = "Qwen/Qwen3-30B-A3B-Instruct-2507"
+
+[wandb]
+project = "rlm-qwen3-30b"
+name = "qwen3-30b-pilot-l02"
+
+[deployment]
+gpus_per_node = 8
+num_train_gpus = 4
+num_infer_gpus = 4
+
+[trainer]
+
+[trainer.model]
+fused_lm_head_token_chunk_size = "auto"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[trainer.model.ac]
+mode = "full"
+freq = 1
+
+[trainer.model.lora]
+rank = 32
+alpha = 64
+dropout = 0.0
+target_modules = ["q_proj", "k_proj", "v_proj", "o_proj"]
+
+[trainer.ckpt]
+interval = 15
+keep_interval = 15
+
+[trainer.ckpt.weights]
+save_adapter_separately = true
+
+[trainer.optim]
+lr = 5e-5
+
+[inference]
+gpu_memory_utilization = 0.90
+
+[inference.model]
+max_model_len = 16384
+enforce_eager = true
+
+[inference.parallel]
+tp = 4
+dp = 1
+
+[orchestrator]
+batch_size = 32
+group_size = 2
+
+[orchestrator.model.lora]
+name = "qwen3-30b-pilot-l02-lora"
+
+[[orchestrator.pre_batch_filters]]
+type = "repetition"
+enforce = true
+window = 3000
+prob_threshold = 0.99
+
+[[orchestrator.pre_batch_filters]]
+type = "zero_advantage"
+enforce = true
+
+[orchestrator.ckpt]
+interval = 15
+keep_interval = 15
+
+[orchestrator.train.sampling]
+max_completion_tokens = 4096
+extra_body = { enable_thinking = false }
+
+[[orchestrator.train.env]]
+id = "oolong"
+name = "pilot-oolong-spam-train"
+ratio = 0.5
+
+[orchestrator.train.env.args]
+dataset_name = "spam"
+context_len = [32768, 65536]
+filter_numerical = true
+num_examples = -1
+max_iterations = 20
+sub_max_tokens = 4096
+min_iterations = 2
+min_subcall = 0
+shaping_coef = 0.2
+correct_threshold = 1.0
+subcall_budget = 64.0
+token_budget = 200000.0
+iteration_weight = 1.0
+subcall_weight = 1.0
+token_weight = 1.0
+
+[[orchestrator.train.env]]
+id = "browsecomp_plus"
+name = "pilot-browsecomp-plus-train"
+ratio = 0.5
+
+[orchestrator.train.env.args]
+num_examples = 150
+k = 50
+reward_mode = "judge"
+judge_model = "openai/gpt-4.1"
+max_iterations = 20
+sub_max_tokens = 4096
+min_iterations = 2
+min_subcall = 0
+shaping_coef = 0.2
+correct_threshold = 1.0
+subcall_budget = 64.0
+token_budget = 200000.0
+iteration_weight = 1.0
+subcall_weight = 1.0
+token_weight = 1.0
+
+[orchestrator.eval]
+interval = 15
+skip_first_step = false
+num_examples = 20
+group_size = 1
+
+[orchestrator.eval.sampling]
+max_completion_tokens = 4096
+extra_body = { enable_thinking = false }
+
+# Held-out eval suite = the HF eval-picture datasets (trec_coarse@132k, pairs@32k,
+# BrowseComp-Plus k=50, LongBench-v2 CodeQA), UNSHAPED. Pilot uses n=20/env (HF uses
+# 50/20/150/50) for loop speed; same datasets/context/k so numbers stay comparable.
+[[orchestrator.eval.env]]
+id = "oolong"
+name = "pilot-oolong-trec-132k-eval"
+num_examples = 20
+group_size = 1
+
+[orchestrator.eval.env.args]
+dataset_name = "trec_coarse"
+context_len = 131072
+filter_numerical = false
+num_examples = 20
+max_iterations = 20
+sub_max_tokens = 4096
+
+[[orchestrator.eval.env]]
+id = "oolong_pairs"
+name = "pilot-oolong-pairs-32k-eval"
+num_examples = 20
+group_size = 1
+
+[orchestrator.eval.env.args]
+context_len = 32768
+num_examples = 20
+max_iterations = 20
+sub_max_tokens = 4096
+
+[[orchestrator.eval.env]]
+id = "browsecomp_plus"
+name = "pilot-browsecomp-plus-eval"
+num_examples = 20
+group_size = 1
+
+[orchestrator.eval.env.args]
+num_examples = 20
+k = 50
+reward_mode = "judge"
+judge_model = "openai/gpt-4.1"
+max_iterations = 20
+sub_max_tokens = 4096
+
+[[orchestrator.eval.env]]
+id = "longbench_codeqa"
+name = "pilot-longbench-codeqa-eval"
+num_examples = 20
+group_size = 1
+
+[orchestrator.eval.env.args]
+num_examples = 20
+max_iterations = 20
+sub_max_tokens = 4096
