@@ -53,6 +53,7 @@ CONTROL = ROOT / "training/configs/rlm-qwen3-30b-thesis-control.toml"
 _CONTROL_ALLOWED_DIFFS = {
     "output_dir",
     "wandb.name",
+    "orchestrator.model.lora.name",
     "orchestrator.train.env[0].name",
     "orchestrator.train.env[1].name",
     "orchestrator.train.env[0].args.shaping_coef",

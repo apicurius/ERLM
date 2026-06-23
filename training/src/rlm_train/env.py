@@ -146,6 +146,7 @@ class RLMTrainEnv(vf.MultiTurnEnv):
         state["rlm_repl_calls"] = 0
         state["rlm_sub_llm_calls"] = 0
         state["rlm_sub_llm_tokens"] = 0
+        state["rlm_sub_llm_usage_missing"] = 0
         state["rlm_final_answer"] = None
         state["rlm_context_count"] = 1
         state["rlm_final_repl_outputs"] = []
@@ -252,16 +253,23 @@ def _record_sub_call(state: State, meta: Any) -> None:
     """
     state["rlm_sub_llm_calls"] = int(state.get("rlm_sub_llm_calls") or 0) + 1
     usage = meta.get("usage") if isinstance(meta, dict) else None
-    if isinstance(usage, dict):
-        tokens = usage.get("total_tokens")
+    if not isinstance(usage, dict):
+        state["rlm_sub_llm_usage_missing"] = int(
+            state.get("rlm_sub_llm_usage_missing") or 0
+        ) + 1
+        return
+
+    tokens = usage.get("total_tokens")
+    try:
         if tokens is None:
             prompt_tokens = usage.get("prompt_tokens") or 0
             completion_tokens = usage.get("completion_tokens") or 0
             tokens = int(prompt_tokens) + int(completion_tokens)
-        try:
-            state["rlm_sub_llm_tokens"] = int(state.get("rlm_sub_llm_tokens") or 0) + int(tokens)
-        except (TypeError, ValueError):
-            pass
+        state["rlm_sub_llm_tokens"] = int(state.get("rlm_sub_llm_tokens") or 0) + int(tokens)
+    except (TypeError, ValueError):
+        state["rlm_sub_llm_usage_missing"] = int(
+            state.get("rlm_sub_llm_usage_missing") or 0
+        ) + 1
 
 
 def _normalize_for_api(msgs: list) -> list:

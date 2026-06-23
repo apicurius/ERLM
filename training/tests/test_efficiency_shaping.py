@@ -113,6 +113,42 @@ def test_bonus_applied_for_correct_rollout():
     assert r > 1.0
 
 
+def test_structural_caps_leave_correctness_only_rollouts_tied():
+    """Caps stop runaway rollouts; they do not credit-assign thrift.
+
+    Both states satisfy the configured ceilings used in the thesis configs:
+    max_iterations=20, subcall_budget=64, token_budget=200k. Under the stock
+    correctness-only reward they are indistinguishable even though the second
+    rollout spends 6x turns, 18x calls, and >4x tokens.
+    """
+
+    stock = RLMTrainRubric(correctness=_correct(1.0), min_iterations=2)
+    cheap = _state(iters=3, sub_calls=3, tokens=35_000)
+    expensive = _state(iters=18, sub_calls=54, tokens=160_000)
+    assert asyncio.run(_call(_main_func(stock), cheap)) == 1.0
+    assert asyncio.run(_call(_main_func(stock), expensive)) == 1.0
+
+
+def test_efficiency_reward_separates_cap_satisfying_correct_rollouts():
+    """The reward has operating room inside the structural caps."""
+
+    shaped = EfficiencyGatedRubric(
+        correctness=_correct(1.0),
+        min_iterations=2,
+        shaping_coef=0.2,
+        max_iterations=20,
+        subcall_budget=64.0,
+        token_budget=200_000.0,
+    )
+    cheap = _state(iters=3, sub_calls=3, tokens=35_000)
+    expensive = _state(iters=18, sub_calls=54, tokens=160_000)
+    cheap_reward = asyncio.run(_call(_main_func(shaped), cheap))
+    expensive_reward = asyncio.run(_call(_main_func(shaped), expensive))
+    assert cheap_reward > expensive_reward > 1.0
+    assert cheap_reward == pytest.approx(1.1752083333)
+    assert expensive_reward == pytest.approx(1.0304166667)
+
+
 # --- Dominance --------------------------------------------------------------
 
 
@@ -239,7 +275,12 @@ def test_efficiency_metrics_exposed():
         token_budget=200_000.0,
     )
     names = {getattr(f, "__name__", "") for f in shaped.funcs}
-    assert {"efficiency_bonus", "rlm_efficiency_score", "rlm_sub_llm_tokens"} <= names
+    assert {
+        "efficiency_bonus",
+        "rlm_efficiency_score",
+        "rlm_sub_llm_tokens",
+        "rlm_sub_llm_usage_missing",
+    } <= names
     bonus = _metric(shaped, "efficiency_bonus")
     st = _state(iters=2, sub_calls=2, tokens=1000)
     assert asyncio.run(_call(bonus, st)) > 0.0
@@ -249,14 +290,24 @@ def test_stock_rubric_exposes_token_telemetry_without_shaping():
     stock = RLMTrainRubric(correctness=_correct(1.0), min_iterations=2)
     names = {getattr(f, "__name__", "") for f in stock.funcs}
     assert "rlm_sub_llm_tokens" in names
+    assert "rlm_sub_llm_usage_missing" in names
     metric = _metric(stock, "rlm_sub_llm_tokens")
     assert asyncio.run(metric(state=_state(tokens=1234))) == 1234
 
 
 def test_record_sub_call_accumulates_calls_and_usage_tokens():
-    state = {"rlm_sub_llm_calls": 0, "rlm_sub_llm_tokens": 0}
+    state = {"rlm_sub_llm_calls": 0, "rlm_sub_llm_tokens": 0, "rlm_sub_llm_usage_missing": 0}
     _record_sub_call(state, {"usage": {"prompt_tokens": 10, "completion_tokens": 5}})
     _record_sub_call(state, {"usage": {"total_tokens": 7}})
     _record_sub_call(state, {})
     assert state["rlm_sub_llm_calls"] == 3
     assert state["rlm_sub_llm_tokens"] == 22
+    assert state["rlm_sub_llm_usage_missing"] == 1
+
+
+def test_record_sub_call_counts_malformed_usage_as_missing():
+    state = {"rlm_sub_llm_calls": 0, "rlm_sub_llm_tokens": 0, "rlm_sub_llm_usage_missing": 0}
+    _record_sub_call(state, {"usage": {"total_tokens": "not-an-int"}})
+    assert state["rlm_sub_llm_calls"] == 1
+    assert state["rlm_sub_llm_tokens"] == 0
+    assert state["rlm_sub_llm_usage_missing"] == 1

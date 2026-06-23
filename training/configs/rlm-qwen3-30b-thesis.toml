@@ -63,6 +63,11 @@ target_modules = ["q_proj", "k_proj", "v_proj", "o_proj"]
 interval = 20
 keep_interval = 20
 
+[trainer.ckpt.weights]
+# prime-rl writes PEFT-compatible raw adapters under weights/step_N/lora_adapters/.
+# Upload that directory to HF for adapter-only repos (~50-60 MB), not the merged step_N root.
+save_adapter_separately = true
+
 [trainer.optim]
 lr = 5e-5
 
@@ -79,15 +84,19 @@ dp = 2
 
 [orchestrator]
 batch_size = 32
-rollouts_per_example = 8
+group_size = 8
 
-[[orchestrator.filters]]
+[orchestrator.model.lora]
+# Stable adapter name used by vLLM when prime-rl hot-loads LoRA updates.
+name = "qwen3-30b-thesis-shaped-lora"
+
+[[orchestrator.pre_batch_filters]]
 type = "repetition"
 enforce = true
 window = 3000
 prob_threshold = 0.99
 
-[[orchestrator.filters]]
+[[orchestrator.pre_batch_filters]]
 type = "zero_advantage"
 enforce = true
 
@@ -153,9 +162,11 @@ token_weight = 1.0
 
 [orchestrator.eval]
 interval = 20
-eval_base_model = true
+# Explicitly keep prime-rl's startup eval enabled: step 0 is the base-model baseline
+# before any trainer update (LoRA is absent/zero-effect before the first weight sync).
+skip_first_step = false
 num_examples = 25
-rollouts_per_example = 1
+group_size = 1
 
 [orchestrator.eval.sampling]
 max_completion_tokens = 4096
@@ -168,7 +179,7 @@ extra_body = { enable_thinking = false }
 id = "oolong"
 name = "rlm-oolong-trec-coarse-132k-eval"
 num_examples = 50
-rollouts_per_example = 1
+group_size = 1
 
 [orchestrator.eval.env.args]
 dataset_name = "trec_coarse"
@@ -182,7 +193,7 @@ sub_max_tokens = 4096
 id = "oolong_pairs"
 name = "rlm-oolong-pairs-32k-eval"
 num_examples = 20
-rollouts_per_example = 1
+group_size = 1
 
 [orchestrator.eval.env.args]
 context_len = 32768
@@ -194,7 +205,7 @@ sub_max_tokens = 4096
 id = "browsecomp_plus"
 name = "rlm-browsecomp-plus-eval"
 num_examples = 150
-rollouts_per_example = 1
+group_size = 1
 
 [orchestrator.eval.env.args]
 num_examples = 150
@@ -208,7 +219,7 @@ sub_max_tokens = 4096
 id = "longbench_codeqa"
 name = "rlm-longbench-codeqa-eval"
 num_examples = 50
-rollouts_per_example = 1
+group_size = 1
 
 [orchestrator.eval.env.args]
 num_examples = 50
