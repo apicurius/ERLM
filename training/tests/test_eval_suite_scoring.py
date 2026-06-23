@@ -119,9 +119,12 @@ def test_score_oolong_pairs_async_f1():
 
 
 def test_find_comparison_phrase():
-    assert _find_comparison_phrase("they are more common now") == "more common"
+    # Suffixed phrases, byte-faithful to upstream alexzhang13/rlm: a bare
+    # "more common" (no "than") no longer matches.
+    assert _find_comparison_phrase("they are more common than before") == "more common than"
+    assert _find_comparison_phrase("they are more common now") is None
     assert _find_comparison_phrase("no phrase here") is None
-    assert set(COMPARISON_PHRASES) == {"more common", "less common", "same frequency"}
+    assert set(COMPARISON_PHRASES) == {"more common than", "less common than", "same frequency as"}
 
 
 def test_oolong_exact_string_match():
@@ -129,7 +132,22 @@ def test_oolong_exact_string_match():
 
 
 def test_oolong_comparison_phrase_match():
+    # No-suffix gold (OOLONG before/after family) is credited via the substring
+    # fallback, same as upstream.
     assert _oolong_synth_score({"answer": "['more common']"}, "result is more common") == 1.0
+    # With-suffix gold (A-vs-B family): a full-phrase answer scores 1.0.
+    assert (
+        _oolong_synth_score({"answer": "['more common than']"}, "Answer: X is more common than Y")
+        == 1.0
+    )
+
+
+def test_oolong_comparison_bare_answer_matches_upstream_zero():
+    # Upstream-parity regression guard: a bare "more common" answer against a
+    # suffixed gold scores 0.0 (upstream behavior). Before the upstream-parity
+    # fix, ERLM over-graded this to 1.0 via a now-removed `trimmed in gold_s`
+    # clause; the HF eval-picture scorer scores it 0.0.
+    assert _oolong_synth_score({"answer": "['more common than']"}, "result is more common") == 0.0
 
 
 def test_oolong_numeric_partial_credit_decays():

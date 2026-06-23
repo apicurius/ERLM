@@ -3,7 +3,9 @@
 Source-traced from PrimeIntellect-ai/research-environments `rlm_oolong` and the
 LMxLM OOLONG task description. The long context is exposed as the REPL variable
 `context`; the model finalizes via answer["content"]/answer["ready"]. Scoring is
-the official OOLONG-synth port.
+byte-faithful to the upstream alexzhang13/rlm OOLONG-synth scorer (the same
+yardstick that produced the HF eval-picture numbers), NOT the stricter
+abertsch72 "official" metric.
 """
 
 from __future__ import annotations
@@ -22,7 +24,13 @@ import rlm_train
 
 PLAN_HINT = "Plan before you act."
 
-COMPARISON_PHRASES = ("more common", "less common", "same frequency")
+# Suffixed forms, byte-faithful to the upstream alexzhang13/rlm OOLONG scorer
+# (training/environments/oolong/oolong/env.py:16). The released HF eval-picture
+# numbers were produced by this upstream training-env scorer (the repo reuses
+# the env for eval), so matching it exactly keeps our OOLONG accuracy on the
+# same yardstick as the model card and avoids over-grading bare comparison
+# phrases (which the shaped reward could otherwise exploit).
+COMPARISON_PHRASES = ("more common than", "less common than", "same frequency as")
 OOLONG_LABELS = (
     "numeric value",
     "entity",
@@ -89,19 +97,19 @@ def _find_comparison_phrase(output: str) -> str | None:
 
 
 def _synth_attempt_answer_parse(answer: str) -> tuple[str, str]:
+    # Byte-faithful to upstream alexzhang13/rlm `_attempt_answer_parse`: comparison
+    # phrase first, then colon/length heuristics. No quote-stripping or second
+    # comparison check (those were ERLM additions that over-grade vs upstream).
     cmp = _find_comparison_phrase(answer)
     if cmp is not None:
         return cmp, "high"
     if ":" not in answer:
-        return (answer, "low") if len(answer) < 20 else (answer.split()[-1], "low")
+        if len(answer) < 20:
+            return answer, "low"
+        return answer.split()[-1], "low"
     candidate = answer.split(":")[-1].strip().replace("*", "").replace("[", "").replace("]", "")
-    if len(candidate) >= 2 and candidate[0] == candidate[-1] and candidate[0] in ('"', "'"):
-        candidate = candidate[1:-1].strip()
     if len(candidate) < 20:
         return candidate, "vhigh"
-    cmp = _find_comparison_phrase(candidate)
-    if cmp is not None:
-        return cmp, "high"
     return candidate, "med"
 
 
@@ -115,12 +123,10 @@ def _oolong_synth_score(datapoint: dict[str, Any], output: str) -> float:
     except Exception:
         gold = answer
 
-    trimmed, _ = _synth_attempt_answer_parse(output.strip())
+    trimmed, _ = _synth_attempt_answer_parse(output)
     gold_s = str(gold)
 
     if str(trimmed) == gold_s or str(trimmed).lower() == gold_s.lower():
-        return 1.0
-    if str(trimmed) in COMPARISON_PHRASES and str(trimmed) in gold_s:
         return 1.0
 
     atype = str(datapoint.get("answer_type", ""))
