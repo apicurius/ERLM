@@ -96,7 +96,15 @@ def first_last(series: list[tuple]) -> tuple:
 EVAL_PAT = ("eval",)
 ACC_PAT = ("reward", "correct", "score", "accuracy", "pass")
 COST_PAT = ("iter", "sub_llm", "subcall", "sub_call", "token")
-DIAG_PAT = ("usage_missing", "efficiency", "shaped", "gibberish", "repetition", "truncat", "zero_advantage")
+DIAG_PAT = (
+    "usage_missing",
+    "efficiency",
+    "shaped",
+    "gibberish",
+    "repetition",
+    "truncat",
+    "zero_advantage",
+)
 PCTL_HINT = ("/p50", "/p90", "/p95", "/p99", "/median", "/mean", "/max", "/min", "/std")
 
 
@@ -135,7 +143,11 @@ def report(d0: str, d02: str) -> None:
     print("=" * 78)
 
     # ---- EVAL ACCURACY (per env): base (step 0) -> trained (last) ----
-    eval_acc = [k for k in select(allkeys, EVAL_PAT, ACC_PAT) if not _match(k, ("cancel", "error", "queued", "inflight"))]
+    eval_acc = [
+        k
+        for k in select(allkeys, EVAL_PAT, ACC_PAT)
+        if not _match(k, ("cancel", "error", "queued", "inflight"))
+    ]
     print("\n## EVAL ACCURACY  (step0 base -> last trained;  D = trained-base)")
     print(f"{'metric':<48}{'ctrl base->last (D)':>22}{'treat base->last (D)':>24}")
     for k in eval_acc:
@@ -143,11 +155,13 @@ def report(d0: str, d02: str) -> None:
         b2, l2, _, _ = fl(a2, k)
         d0v = (l0 - b0) if (b0 is not None and l0 is not None) else None
         d2v = (l2 - b2) if (b2 is not None and l2 is not None) else None
+
         def fmt(b, last, d):
             if b is None:
                 return "n/a"
             return f"{b:.3f}->{last:.3f} ({d:+.3f})" if d is not None else f"{b:.3f}"
-        print(f"{k:<48}{fmt(b0,l0,d0v):>22}{fmt(b2,l2,d2v):>24}")
+
+        print(f"{k:<48}{fmt(b0, l0, d0v):>22}{fmt(b2, l2, d2v):>24}")
     if not eval_acc:
         print("  (no eval-accuracy keys yet — eval not logged; rerun after a completed eval)")
 
@@ -159,9 +173,11 @@ def report(d0: str, d02: str) -> None:
         _, l0, _, _ = fl(a0, k)
         _, l2, _, _ = fl(a2, k)
         dpct = ((l2 - l0) / l0 * 100) if (l0 not in (None, 0) and l2 is not None) else None
-        print(f"{k:<52}{(f'{l0:.2f}' if l0 is not None else 'n/a'):>14}"
-              f"{(f'{l2:.2f}' if l2 is not None else 'n/a'):>14}"
-              f"{(f'{dpct:+.1f}' if dpct is not None else ''):>9}")
+        print(
+            f"{k:<52}{(f'{l0:.2f}' if l0 is not None else 'n/a'):>14}"
+            f"{(f'{l2:.2f}' if l2 is not None else 'n/a'):>14}"
+            f"{(f'{dpct:+.1f}' if dpct is not None else ''):>9}"
+        )
     if not cost:
         print("  (no cost keys yet)")
 
@@ -179,7 +195,9 @@ def report(d0: str, d02: str) -> None:
     print("\n## DECISION-RULE READ (heuristic)")
     print("  - efficiency working  : treatment cost (iterations/sub_llm/tokens) < control")
     print("  - NOT shortcutting     : treatment eval accuracy ~>= control (within noise)")
-    print("  - token axis live      : rlm_sub_llm_usage_missing ~ 0 (else token efficiency is a no-op)")
+    print(
+        "  - token axis live      : rlm_sub_llm_usage_missing ~ 0 (else token efficiency is a no-op)"
+    )
 
 
 def main() -> int:

@@ -46,7 +46,7 @@ CONTEXT BUDGET (critical — your model window is only ~16k tokens): the full `c
 
 Task-specific OOLONG guidance (adapted from PrimeIntellect-ai/research-environments rlm_oolong and LMxLM OOLONG):
 - The long OOLONG context is available as the REPL variable `context`; do not print or paste it all at once.
-- The context contains thousands of general-knowledge questions, one per line. Each line has a User ID and a question. Each question's answer belongs to one of these six labels: {', '.join(repr(x) for x in OOLONG_LABELS)}. The labels are not explicitly present; infer them from semantics.
+- The context contains thousands of general-knowledge questions, one per line. Each line has a User ID and a question. Each question's answer belongs to one of these six labels: {", ".join(repr(x) for x in OOLONG_LABELS)}. The labels are not explicitly present; infer them from semantics.
 - For long-context retrieval/aggregation, inspect a small sample, split the context into chunky windows, build focused prompts, and use `llm_query_batched` to scan chunks in parallel. Avoid one-subcall-per-line loops.
 - Aggregate the chunk findings in Python. Keep final answers short: a single token / word / date / label / comparison phrase / integer as required by the question.
 - When ready, set `answer["content"]` to ONLY the final answer and then `answer["ready"] = True`.

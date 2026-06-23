@@ -43,6 +43,7 @@ def _get_openai_judge_client():
         )
     return _OPENAI_JUDGE_CLIENT
 
+
 # Public canary from the Tevatron/browsecomp-plus dataset card (XOR key seed).
 _BCP_CANARY = (
     "BENCHMARK DATA SHOULD NEVER APPEAR AS PLAIN TEXT ONLINE. "
@@ -291,7 +292,10 @@ def _make_browsecomp_plus_judge_score(judge_model: str | None = None):
             raw_content = getattr(getattr(response, "message", None), "content", "")
             if isinstance(raw_content, list):
                 raw = "".join(
-                    str(getattr(part, "text", "") or (part.get("text") if isinstance(part, dict) else ""))
+                    str(
+                        getattr(part, "text", "")
+                        or (part.get("text") if isinstance(part, dict) else "")
+                    )
                     for part in raw_content
                 )
             else:

@@ -37,7 +37,7 @@ CONTEXT BUDGET (critical — your model window is only ~16k tokens): the full `c
 Task-specific OOLONG-Pairs guidance (adapted from PrimeIntellect-ai/research-environments rlm_oolong_pairs and LMxLM OOLONG-Pairs):
 - The long TREC-coarse context is available as the REPL variable `context`; do not print or paste it all at once.
 - Each line has the shape roughly `Date: <date> || User: <id> || Instance: <question>`. Parse each line into user_id and question text where possible.
-- Each question should be semantically classified into one of six labels: {', '.join(repr(x) for x in OOLONG_LABELS)}. Labels are not explicit.
+- Each question should be semantically classified into one of six labels: {", ".join(repr(x) for x in OOLONG_LABELS)}. Labels are not explicit.
 - Pair queries ask for unordered user-ID pairs satisfying joint label/count/date predicates. Use Python for parsing, deduping, and forming pair cross-products; use `llm_query_batched` on chunky prompts for semantic labeling/extraction.
 - Avoid tiny-prompt mega-batches and one-subcall-per-line loops. Prefer fat chunks and batched calls.
 - Final answer format: list every matching pair as `(user_id_1, user_id_2)`, lower ID first, one pair per line. If no pairs match, answer `[]`.
@@ -158,7 +158,9 @@ def _load_trec_context(context_len: int) -> str:
         e = dict(ex)
         if e.get("dataset") == "trec_coarse" and int(e.get("context_len", 0)) == int(context_len):
             return str(e.get("context_window_text", e.get("context", "")))
-    raise ValueError(f"No trec_coarse context_len={context_len} in oolongbench/oolong-synth validation")
+    raise ValueError(
+        f"No trec_coarse context_len={context_len} in oolongbench/oolong-synth validation"
+    )
 
 
 def _build_oolong_pairs_dataset(
@@ -189,7 +191,9 @@ def _build_oolong_pairs_dataset(
                 "question_id": qid,
                 "context_len": cl,
                 "answer": answer_obj,
-                "num_pairs": q.get("num_pairs", len(answer_obj) if isinstance(answer_obj, list) else 0),
+                "num_pairs": q.get(
+                    "num_pairs", len(answer_obj) if isinstance(answer_obj, list) else 0
+                ),
                 "context": context,
                 "root_prompt": root_prompt,
                 "source_env": "PrimeIntellect-ai/research-environments:rlm_oolong_pairs + LMxLM:oolong_pairs",

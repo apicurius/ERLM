@@ -7,6 +7,7 @@ with pyproject.toml, a thin __init__ re-exporting `load_environment`, a
 self-contained env.py, and a README. This validator checks that structure plus
 the traced user prologues and config wiring, without GPUs or network.
 """
+
 from __future__ import annotations
 
 import inspect
@@ -94,7 +95,9 @@ def main() -> int:
     if not all(checks.values()):
         print(f"FAILED (missing config env ids: {sorted(missing)})")
         return 1
-    print("PASSED: per-env eval-suite packages expose traced user_prologues and config references them.")
+    print(
+        "PASSED: per-env eval-suite packages expose traced user_prologues and config references them."
+    )
     return 0
 
 

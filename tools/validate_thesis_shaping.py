@@ -138,7 +138,9 @@ def main() -> int:
     checks["config_train_ratios_all_set"] = bool(train_envs) and all(
         float(e.get("ratio", 0.0)) > 0.0 for e in train_envs
     )
-    checks["config_train_ratio_equal_split"] = sorted(float(e.get("ratio", 0.0)) for e in train_envs) == [
+    checks["config_train_ratio_equal_split"] = sorted(
+        float(e.get("ratio", 0.0)) for e in train_envs
+    ) == [
         0.5,
         0.5,
     ]
@@ -160,10 +162,10 @@ def main() -> int:
     control_train = control_cfg.get("orchestrator", {}).get("train", {}).get("env", [])
     control_eval = control_cfg.get("orchestrator", {}).get("eval", {}).get("env", [])
     checks["control_config_exists"] = CONTROL.exists()
-    checks["control_trains_same_split_as_treatment"] = (
-        {e.get("id") for e in control_train} == train_ids
-        and sorted(float(e.get("ratio", 0.0)) for e in control_train)
-        == sorted(float(e.get("ratio", 0.0)) for e in train_envs)
+    checks["control_trains_same_split_as_treatment"] = {
+        e.get("id") for e in control_train
+    } == train_ids and sorted(float(e.get("ratio", 0.0)) for e in control_train) == sorted(
+        float(e.get("ratio", 0.0)) for e in train_envs
     )
     checks["control_is_unshaped"] = bool(control_train) and all(
         float(e.get("args", {}).get("shaping_coef", 0.0)) == 0.0 for e in control_train

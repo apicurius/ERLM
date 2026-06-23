@@ -1,8 +1,12 @@
-from huggingface_hub import hf_hub_download
 from datasets import load_dataset
+from huggingface_hub import hf_hub_download
+
 try:
-    p = hf_hub_download(repo_id="mit-oasys/oolong-pairs", repo_type="dataset",
-                        filename="data/oolong-pairs-32768.json")
+    p = hf_hub_download(
+        repo_id="mit-oasys/oolong-pairs",
+        repo_type="dataset",
+        filename="data/oolong-pairs-32768.json",
+    )
     print("oolong-pairs json OK", p)
 except Exception as e:
     print("oolong-pairs FAIL", type(e).__name__, e)

@@ -32,9 +32,7 @@ def git_show(pathspec: str) -> str:
 def load_environment_params() -> set[str]:
     tree = ast.parse(git_show(UPSTREAM_OOLONG))
     fn = next(
-        n
-        for n in tree.body
-        if isinstance(n, ast.FunctionDef) and n.name == "load_environment"
+        n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "load_environment"
     )
     return {a.arg for a in fn.args.args} | {a.arg for a in fn.args.kwonlyargs}
 
@@ -93,7 +91,9 @@ def main() -> int:
             print(f"- {err}", file=sys.stderr)
         return 1
 
-    print("\nPASSED: efficient config is upstream-compatible and contains no local-only cost knobs.")
+    print(
+        "\nPASSED: efficient config is upstream-compatible and contains no local-only cost knobs."
+    )
     return 0
 
 

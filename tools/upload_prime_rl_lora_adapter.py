@@ -35,7 +35,11 @@ FULL_MODEL_FILE_GLOBS = (
     "consolidated*.bin",
     "*.index.json",
 )
-ADAPTER_WEIGHT_GLOBS = ("adapter_model.safetensors", "adapter_model.bin", "adapter_model*.safetensors")
+ADAPTER_WEIGHT_GLOBS = (
+    "adapter_model.safetensors",
+    "adapter_model.bin",
+    "adapter_model*.safetensors",
+)
 
 
 def parse_args() -> argparse.Namespace:

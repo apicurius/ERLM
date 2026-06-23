@@ -262,9 +262,7 @@ def _record_sub_call(state: State, meta: Any) -> None:
     state["rlm_sub_llm_calls"] = int(state.get("rlm_sub_llm_calls") or 0) + 1
     usage = meta.get("usage") if isinstance(meta, dict) else None
     if not isinstance(usage, dict):
-        state["rlm_sub_llm_usage_missing"] = int(
-            state.get("rlm_sub_llm_usage_missing") or 0
-        ) + 1
+        state["rlm_sub_llm_usage_missing"] = int(state.get("rlm_sub_llm_usage_missing") or 0) + 1
         return
 
     tokens = usage.get("total_tokens")
@@ -275,9 +273,7 @@ def _record_sub_call(state: State, meta: Any) -> None:
             tokens = int(prompt_tokens) + int(completion_tokens)
         state["rlm_sub_llm_tokens"] = int(state.get("rlm_sub_llm_tokens") or 0) + int(tokens)
     except (TypeError, ValueError):
-        state["rlm_sub_llm_usage_missing"] = int(
-            state.get("rlm_sub_llm_usage_missing") or 0
-        ) + 1
+        state["rlm_sub_llm_usage_missing"] = int(state.get("rlm_sub_llm_usage_missing") or 0) + 1
 
 
 def _normalize_for_api(msgs: list) -> list:

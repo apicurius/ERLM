@@ -50,8 +50,7 @@ def _check_config(path: Path) -> dict[str, bool]:
         f"{path.name}:lora_alpha_64": float(lora.get("alpha", 0.0)) == 64.0,
         f"{path.name}:lora_targets_match_hf_adapter": lora.get("target_modules")
         == EXPECTED_LORA_TARGETS,
-        f"{path.name}:saves_adapter_separately": weights.get("save_adapter_separately")
-        is True,
+        f"{path.name}:saves_adapter_separately": weights.get("save_adapter_separately") is True,
         f"{path.name}:has_orchestrator_lora_name": bool(
             orchestrator.get("model", {}).get("lora", {}).get("name")
         ),
@@ -77,8 +76,8 @@ def _check_env_packages() -> dict[str, bool]:
             checks[f"{pkg}:depends_on_verifiers"] = False
             continue
         cfg = _read(pyproject)
-        entrypoints = cfg.get("project", {}).get("entry-points", {}).get(
-            "verifiers.environments", {}
+        entrypoints = (
+            cfg.get("project", {}).get("entry-points", {}).get("verifiers.environments", {})
         )
         deps = cfg.get("project", {}).get("dependencies", [])
         checks[f"{pkg}:verifiers_entrypoint"] = entrypoints.get(pkg) == f"{pkg}:load_environment"

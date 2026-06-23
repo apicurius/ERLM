@@ -203,7 +203,7 @@ def test_bcp_decrypt_non_base64_returns_input():
         ('{"is_correct": true}', True),
         ('{"is_correct": false}', False),
         ('```json\n{"is_correct": true}\n```', True),  # markdown fence tolerated
-        ("Here is my verdict:\n{\"is_correct\": false}", False),  # leading text
+        ('Here is my verdict:\n{"is_correct": false}', False),  # leading text
         ('{\n  "is_correct": true\n}', True),  # pretty-printed
         ("no verdict line", False),  # keyword fallback -> not correct
     ],
