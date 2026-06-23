@@ -61,6 +61,8 @@ BROWSECOMP_ANSWER_FORMAT = (
 
 BROWSECOMP_PLUS_USER_PROLOGUE = f"""{PLAN_HINT}
 
+CONTEXT BUDGET (critical — your model window is only ~16k tokens): the `context` list of documents lives in the REPL and is far larger than your window. NEVER print, paste, or echo raw documents or chunks into REPL output or your messages — REPL outputs are fed back to you and accumulate, so big prints overflow the window and waste the rollout. Print ONLY tiny results (a DOCID, a count, the few facts you need); keep every printed output under ~400 characters and every ```repl``` block short. Pass documents as ARGUMENTS to `llm_query_batched` (never print them). Finish in as few turns as possible: plan -> one or two batched sub-LLM passes over packed docs -> synthesize -> finalize.
+
 Task-specific BrowseComp-Plus guidance (adapted from PrimeIntellect-ai/research-environments rlm_browsecomp and LMxLM browsecomp_plus):
 - This is an evidence-document deep-research QA task. The REPL variable `context` is a Python list of evidence document strings (a shuffled mix of gold, supporting, and hard-negative docs). Do not paste all docs into the REPL at once.
 - Strategy: scan/filter docs for relevance with chunky `llm_query_batched` calls, then synthesize an evidence-grounded answer. Avoid one-subcall-per-doc loops; pack multiple docs per sub-prompt.

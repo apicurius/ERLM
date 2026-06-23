@@ -42,6 +42,8 @@ OOLONG_LABELS = (
 
 OOLONG_USER_PROLOGUE = f"""{PLAN_HINT}
 
+CONTEXT BUDGET (critical — your model window is only ~16k tokens): the full `context` lives in the REPL and is far larger than your window. NEVER print, paste, or echo raw context, lines, or chunks into REPL output or your messages — REPL outputs are fed back to you and accumulate, so big prints overflow the window and waste the rollout. Print ONLY tiny results (counts, the few values you need); keep every printed output under ~400 characters and every ```repl``` block short. Pass chunks as ARGUMENTS to `llm_query_batched` (never print them). Finish in as few turns as possible: plan -> one or two batched sub-LLM passes -> aggregate in Python -> finalize.
+
 Task-specific OOLONG guidance (adapted from PrimeIntellect-ai/research-environments rlm_oolong and LMxLM OOLONG):
 - The long OOLONG context is available as the REPL variable `context`; do not print or paste it all at once.
 - The context contains thousands of general-knowledge questions, one per line. Each line has a User ID and a question. Each question's answer belongs to one of these six labels: {', '.join(repr(x) for x in OOLONG_LABELS)}. The labels are not explicitly present; infer them from semantics.
