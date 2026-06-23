@@ -131,7 +131,7 @@ shaping_coef = 0.2
 correct_threshold = 1.0
 # Efficiency axes (fewer-is-better). The turns axis uses max_iterations as its
 # budget automatically; set sub-call / token budgets here to enable those axes.
-subcall_budget = 64.0
+subcall_budget = 32.0
 token_budget = 200000.0
 iteration_weight = 1.0
 subcall_weight = 1.0
@@ -154,7 +154,7 @@ min_subcall = 0
 # Same thesis knobs as OOLONG: efficiency is a tie-breaker among judge-correct rollouts.
 shaping_coef = 0.2
 correct_threshold = 1.0
-subcall_budget = 64.0
+subcall_budget = 32.0
 token_budget = 200000.0
 iteration_weight = 1.0
 subcall_weight = 1.0

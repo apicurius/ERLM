@@ -60,9 +60,9 @@ async def c0(**k): return 0.0
 c0.__name__ = "correctness"
 stock = rlm_train.RLMTrainRubric(correctness=c1, min_iterations=2)
 shaped = rlm_train.EfficiencyGatedRubric(correctness=c1, min_iterations=2, shaping_coef=0.2,
-                                         max_iterations=20, subcall_budget=64.0, token_budget=200000.0)
+                                         max_iterations=20, subcall_budget=32.0, token_budget=200000.0)
 wrong = rlm_train.EfficiencyGatedRubric(correctness=c0, min_iterations=2, shaping_coef=0.2,
-                                        max_iterations=20, subcall_budget=64.0, token_budget=200000.0)
+                                        max_iterations=20, subcall_budget=32.0, token_budget=200000.0)
 cheap = {"rlm_iterations":3,"rlm_sub_llm_calls":3,"rlm_sub_llm_tokens":35000,"rlm_final_answer":"x"}
 pricey= {"rlm_iterations":18,"rlm_sub_llm_calls":60,"rlm_sub_llm_tokens":190000,"rlm_final_answer":"x"}
 r_stock = float(run(stock.funcs[0](state=cheap, info={})))

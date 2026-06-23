@@ -198,7 +198,7 @@ def main() -> int:
     # Parity: shaping_coef=0 == stock R=c.
     stock = RLMTrainRubric(correctness=_correct(1.0), min_iterations=2)
     off = EfficiencyGatedRubric(
-        correctness=_correct(1.0), min_iterations=2, shaping_coef=0.0, subcall_budget=64.0
+        correctness=_correct(1.0), min_iterations=2, shaping_coef=0.0, subcall_budget=32.0
     )
     st = _state()
     r_stock = asyncio.run(_call(_main(stock), st))
@@ -214,14 +214,14 @@ def main() -> int:
         min_iterations=2,
         shaping_coef=0.5,
         max_iterations=20,
-        subcall_budget=64.0,
+        subcall_budget=32.0,
     )
     on_wrong = EfficiencyGatedRubric(
         correctness=_correct(0.0),
         min_iterations=2,
         shaping_coef=0.5,
         max_iterations=20,
-        subcall_budget=64.0,
+        subcall_budget=32.0,
     )
     r_correct = asyncio.run(_call(_main(on_correct), _state(iters=2, sub_calls=2, tokens=500)))
     r_wrong_cheap = asyncio.run(_call(_main(on_wrong), _state(iters=1, sub_calls=0, tokens=0)))
