@@ -114,6 +114,7 @@ name = "rlm-oolong-spam-train-control"
 ratio = 0.5
 
 [orchestrator.train.env.args]
+timeout_seconds = 1200
 dataset_name = "spam"
 context_len = [32768, 65536]
 filter_numerical = true
@@ -141,6 +142,7 @@ name = "rlm-browsecomp-plus-train-control"
 ratio = 0.5
 
 [orchestrator.train.env.args]
+timeout_seconds = 1200
 num_examples = 150
 k = 50
 reward_mode = "judge"
@@ -180,6 +182,7 @@ num_examples = 50
 group_size = 1
 
 [orchestrator.eval.env.args]
+timeout_seconds = 1200
 dataset_name = "trec_coarse"
 context_len = 131072
 filter_numerical = false
@@ -194,6 +197,7 @@ num_examples = 20
 group_size = 1
 
 [orchestrator.eval.env.args]
+timeout_seconds = 1200
 context_len = 32768
 num_examples = 20
 max_iterations = 20
@@ -206,6 +210,7 @@ num_examples = 150
 group_size = 1
 
 [orchestrator.eval.env.args]
+timeout_seconds = 1200
 num_examples = 150
 k = 50
 reward_mode = "judge"
@@ -220,6 +225,7 @@ num_examples = 50
 group_size = 1
 
 [orchestrator.eval.env.args]
+timeout_seconds = 1200
 num_examples = 50
 max_iterations = 20
 sub_max_tokens = 4096
