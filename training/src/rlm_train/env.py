@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -51,7 +52,14 @@ class RLMTrainEnv(vf.MultiTurnEnv):
             rubric=rubric or RLMTrainRubric(),
             **kwargs,
         )
-        self._backend_factory = backend_factory or (lambda: SubprocessReplBackend())
+        # Worker startup timeout is env-configurable: `python -m rlm_train.worker`
+        # imports the rlm_train package (verifiers + stack), so many workers
+        # cold-starting at once on a shared/slow FS can exceed the 30s default.
+        # Set RLM_TRAIN_WORKER_STARTUP_TIMEOUT_S higher on such clusters.
+        _startup_timeout = float(os.environ.get("RLM_TRAIN_WORKER_STARTUP_TIMEOUT_S", "30"))
+        self._backend_factory = backend_factory or (
+            lambda: SubprocessReplBackend(startup_timeout=_startup_timeout)
+        )
         self._max_iterations = max_iterations
         self._sub_model = sub_model
         self._sub_sampling_args = sub_sampling_args or {"max_tokens": 4096}
