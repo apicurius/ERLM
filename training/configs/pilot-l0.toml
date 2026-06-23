@@ -86,7 +86,6 @@ name = "pilot-oolong-spam-train"
 ratio = 0.5
 
 [orchestrator.train.env.args]
-timeout_seconds = 1200
 dataset_name = "spam"
 context_len = [32768, 65536]
 filter_numerical = true
@@ -109,7 +108,6 @@ name = "pilot-browsecomp-plus-train"
 ratio = 0.5
 
 [orchestrator.train.env.args]
-timeout_seconds = 1200
 num_examples = 150
 k = 50
 reward_mode = "judge"
