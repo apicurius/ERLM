@@ -27,8 +27,8 @@ import sys
 
 def read_wandb_history(wandb_file: str) -> dict[str, list[tuple]]:
     """Return {metric_key: [(step, value), ...]} from one offline .wandb file."""
-    from wandb.sdk.internal.datastore import DataStore
     import wandb.proto.wandb_internal_pb2 as pb  # type: ignore
+    from wandb.sdk.internal.datastore import DataStore
 
     ds = DataStore()
     ds.open_for_scan(wandb_file)
@@ -143,9 +143,10 @@ def report(d0: str, d02: str) -> None:
         b2, l2, _, _ = fl(a2, k)
         d0v = (l0 - b0) if (b0 is not None and l0 is not None) else None
         d2v = (l2 - b2) if (b2 is not None and l2 is not None) else None
-        def fmt(b, l, d):
-            if b is None: return "n/a"
-            return f"{b:.3f}->{l:.3f} ({d:+.3f})" if d is not None else f"{b:.3f}"
+        def fmt(b, last, d):
+            if b is None:
+                return "n/a"
+            return f"{b:.3f}->{last:.3f} ({d:+.3f})" if d is not None else f"{b:.3f}"
         print(f"{k:<48}{fmt(b0,l0,d0v):>22}{fmt(b2,l2,d2v):>24}")
     if not eval_acc:
         print("  (no eval-accuracy keys yet — eval not logged; rerun after a completed eval)")
