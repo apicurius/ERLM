@@ -7,9 +7,10 @@ BrowseComp-Plus evidence-document deep-research QA wired through `RLMTrainEnv`.
   `k` docs/query (HF eval picture: `test (n=150, k=50 documents)`).
 - **Answer format:** simple-evals `Explanation / Exact Answer / Confidence`.
 - **Scoring:** `reward_mode="judge"` (default) reproduces the released metric
-  using the verbatim HLE grader prompt (`BROWSECOMP_GRADER_TEMPLATE`); a
-  deterministic `Exact Answer` normalized-match proxy is available as a fallback
-  / offline smoke-test mode (`reward_mode != "judge"`).
+  using the **verbatim LMxLM / BrowseComp-Plus judge** (`BROWSECOMP_PLUS_JUDGE_PROMPT`,
+  binary `is_correct` JSON verdict — the reference uses `gpt-5-nano`, we default to
+  `gpt-4.1`); a deterministic `Exact Answer` normalized-match proxy is available as
+  a fallback / offline smoke-test mode (`reward_mode != "judge"`).
 - **Source trace:** PrimeIntellect-ai/research-environments `rlm_browsecomp` +
   LMxLM `lm_to_program/browsecomp_plus`.
 

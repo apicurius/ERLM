@@ -74,27 +74,31 @@ Task-specific BrowseComp-Plus guidance (adapted from PrimeIntellect-ai/research-
 - When ready, set `answer["content"]` to that full Explanation/Exact Answer/Confidence block and then `answer["ready"] = True`.
 """
 
-# HLE-style grader prompt (verbatim from Prime rlm_browsecomp GRADER_TEMPLATE);
-# preserved so a judge-backed rubric can reproduce the released eval exactly.
-BROWSECOMP_GRADER_TEMPLATE = """
-Judge whether the following [response] to [question] is correct or not based on the precise and unambiguous [correct_answer] below.
+# LM-as-a-judge prompt — VERBATIM from the LMxLM / BrowseComp-Plus reference
+# (alexzhang13/LMxLM lmxlm/environments/lm_to_program/browsecomp_plus/_judge.py,
+# which mirrors texttron/BrowseComp-Plus llm_judge.py). The released
+# BrowseComp-Plus eval numbers were produced by THIS `is_correct` JSON judge
+# (reference default gpt-5-nano; any capable model works), NOT the simple-evals
+# HLE grader. Matching it keeps our BrowseComp-Plus accuracy on the model-card
+# yardstick.
+BROWSECOMP_PLUS_JUDGE_PROMPT = """You are an expert judge evaluating whether a predicted answer correctly matches the expected answer for a given query.
 
-[question]: {question}
+Query: {query}
 
-[response]: {response}
+Expected Answer: {expected}
 
-Your judgement must be in the format and criteria specified below:
+Predicted Answer: {predicted}
 
-extracted_final_answer: The final exact answer extracted from the [response]. Put the extracted answer as 'None' if there is no exact, final answer to extract from the response.
+Please determine if the predicted answer is correct. Consider:
+1. Exact matches are correct
+2. Minor formatting differences (e.g., capitalization, punctuation, spacing) should be considered correct if the semantic content is the same
+3. Partial answers that contain the correct information should be considered correct
+4. Answers that are semantically equivalent but worded differently should be considered correct
 
-[correct_answer]: {answer}
-
-reasoning: Explain why the extracted_final_answer is correct or incorrect based on [correct_answer], focusing only on if there are meaningful differences between [correct_answer] and the extracted_final_answer.
-
-correct: Answer 'yes' if extracted_final_answer matches the [correct_answer] given above, or is within a small margin of error for numerical problems. Answer 'no' otherwise.
-
-confidence: The extracted confidence score between 0% and 100% from [response]. Put 100 if there is no confidence score available.
-""".strip()
+Respond with ONLY a JSON object in this exact format:
+{{
+    "is_correct": true or false
+}}"""
 
 
 def _build_rubric(
@@ -210,14 +214,32 @@ async def _score_browsecomp_plus(info, state: vf.State, **_kw: Any) -> float:
 
 
 def _parse_bcp_judge_correct(raw: str) -> bool:
-    m = re.search(r"^\s*correct\s*:\s*(yes|no)\b", raw, re.IGNORECASE | re.MULTILINE)
-    if m:
-        return m.group(1).lower() == "yes"
-    # Fallback for JSON-ish judge outputs.
-    m2 = re.search(r'"correct"\s*:\s*(true|false|"yes"|"no")', raw, re.IGNORECASE)
-    if m2:
-        val = m2.group(1).strip('"').lower()
-        return val in {"true", "yes"}
+    # Verbatim port of LMxLM `_judge._parse_verdict`: extract the boolean
+    # `is_correct` from a JSON object, tolerating markdown fences and trailing
+    # text, with a true/correct keyword fallback (matches the reference).
+    if not raw:
+        return False
+    stripped = raw.strip()
+    fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", stripped, re.DOTALL)
+    if fence:
+        stripped = fence.group(1)
+    try:
+        parsed: Any = json.loads(stripped)
+    except (json.JSONDecodeError, TypeError):
+        parsed = None
+    if isinstance(parsed, dict) and "is_correct" in parsed:
+        return bool(parsed["is_correct"])
+    match = re.search(r"\{.*\}", stripped, re.DOTALL)
+    if match:
+        try:
+            parsed = json.loads(match.group(0))
+        except (json.JSONDecodeError, TypeError):
+            parsed = None
+        if isinstance(parsed, dict) and "is_correct" in parsed:
+            return bool(parsed["is_correct"])
+    lower = stripped.lower()
+    if "true" in lower or ("correct" in lower and "incorrect" not in lower):
+        return True
     return False
 
 
@@ -235,10 +257,12 @@ def _make_browsecomp_plus_judge_score(judge_model: str | None = None):
         if not final.strip():
             return 0.0
         meta = json.loads(info) if isinstance(info, str) else info
-        prompt = BROWSECOMP_GRADER_TEMPLATE.format(
-            question=str(meta.get("raw_question") or meta.get("id") or ""),
-            response=final,
-            answer=str(meta.get("answer", "")),
+        # LMxLM judge expects a clean predicted answer; extract the Exact Answer
+        # from our Explanation/Exact Answer/Confidence block.
+        prompt = BROWSECOMP_PLUS_JUDGE_PROMPT.format(
+            query=str(meta.get("raw_question") or meta.get("id") or ""),
+            expected=str(meta.get("answer", "")),
+            predicted=_extract_exact_answer(final),
         )
         model = str(judge_model or state.get("model") or "")
         # External judge (e.g. "openai/gpt-4.1"): route to the real provider via a
@@ -416,6 +440,6 @@ def load_environment(
 __all__ = [
     "load_environment",
     "BROWSECOMP_ANSWER_FORMAT",
-    "BROWSECOMP_GRADER_TEMPLATE",
+    "BROWSECOMP_PLUS_JUDGE_PROMPT",
     "BROWSECOMP_PLUS_USER_PROLOGUE",
 ]
