@@ -32,6 +32,8 @@ OOLONG_LABELS = (
 
 OOLONG_PAIRS_USER_PROLOGUE = f"""{PLAN_HINT}
 
+CONTEXT BUDGET (critical — your model window is only ~16k tokens): the full `context` lives in the REPL and is far larger than your window. NEVER print, paste, or echo raw context, lines, or chunks into REPL output or your messages — REPL outputs are fed back to you and accumulate, so big prints overflow the window and waste the rollout. Print ONLY tiny results (counts, the few user_ids/pairs you need); keep every printed output under ~400 characters and every ```repl``` block short. Pass chunks as ARGUMENTS to `llm_query_batched` (never print them). Finish in as few turns as possible: plan -> one or two batched sub-LLM passes -> aggregate pairs in Python -> finalize.
+
 Task-specific OOLONG-Pairs guidance (adapted from PrimeIntellect-ai/research-environments rlm_oolong_pairs and LMxLM OOLONG-Pairs):
 - The long TREC-coarse context is available as the REPL variable `context`; do not print or paste it all at once.
 - Each line has the shape roughly `Date: <date> || User: <id> || Instance: <question>`. Parse each line into user_id and question text where possible.

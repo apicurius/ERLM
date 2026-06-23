@@ -24,6 +24,8 @@ LONGBENCH_CODE_DOMAIN = "Code Repository Understanding"
 
 LONGBENCH_CODEQA_USER_PROLOGUE = f"""{PLAN_HINT}
 
+CONTEXT BUDGET (critical — your model window is only ~16k tokens): the `context` repository lives in the REPL and is far larger than your window. NEVER print, paste, or echo raw source code, files, or chunks into REPL output or your messages — REPL outputs are fed back to you and accumulate, so big prints overflow the window and waste the rollout. Print ONLY tiny results (a filename, a line count, the few snippets you need); keep every printed output under ~400 characters and every ```repl``` block short. Pass code regions as ARGUMENTS to `llm_query_batched` (never print them). Finish in as few turns as possible: plan -> grep/locate in Python -> one or two batched sub-LLM passes over candidate regions -> decide -> finalize.
+
 Task-specific LongBench-v2 Code-Repository-QA guidance:
 - The REPL variable `context` holds a long source-code repository (potentially many files concatenated). Do not paste it all into the REPL at once.
 - This is a 4-choice multiple-choice question. Read the question and the four options (A, B, C, D) in the prompt.
