@@ -95,11 +95,12 @@ def _build_longbench_codeqa_dataset(
     *,
     num_examples: int = 50,
     seed: int = 42,
-    shuffle: bool = False,
 ) -> Dataset:
     ds = load_dataset("THUDM/LongBench-v2", split="train")
     rows = [dict(e) for e in ds if str(e.get("domain", "")) == LONGBENCH_CODE_DOMAIN]
-    if shuffle:
+    # Seeded shuffle before truncation so a fixed-N eval draws a representative
+    # subset, not a biased first-N slice.
+    if seed is not None:
         random.Random(seed).shuffle(rows)
     if num_examples and num_examples > 0:
         rows = rows[:num_examples]
@@ -143,7 +144,6 @@ def load_environment(
     *,
     num_examples: int = 50,
     seed: int = 42,
-    shuffle: bool = False,
     max_iterations: int = 20,
     sub_max_tokens: int = 4096,
     min_iterations: int = 2,
@@ -158,7 +158,7 @@ def load_environment(
     token_weight: float = 1.0,
     **kwargs: Any,
 ) -> vf.Environment:
-    dataset = _build_longbench_codeqa_dataset(num_examples=num_examples, seed=seed, shuffle=shuffle)
+    dataset = _build_longbench_codeqa_dataset(num_examples=num_examples, seed=seed)
     rubric = _build_rubric(
         _score_longbench_codeqa,
         min_iterations=min_iterations,

@@ -172,25 +172,40 @@ def _build_oolong_dataset(
     seed: int = 42,
     filter_numerical: bool = True,
     split: str = "validation",
-    shuffle: bool = False,
 ) -> Dataset:
     names = {str(x) for x in _as_list(dataset_name)}
     lens = {int(x) for x in _as_list(context_len)}
-    ds = load_dataset("oolongbench/oolong-synth", split=split)
-    rows: list[dict[str, Any]] = []
-    for ex in ds:
-        e = dict(ex)
+
+    def _keep(e: dict[str, Any]) -> bool:
         if names and str(e.get("dataset", "")) not in names:
-            continue
+            return False
         if lens and int(e.get("context_len", 0)) not in lens:
-            continue
+            return False
         if filter_numerical and e.get("answer_type") == "ANSWER_TYPE.NUMERIC":
-            continue
-        rows.append(e)
-    if shuffle:
-        random.Random(seed).shuffle(rows)
+            return False
+        return True
+
+    # Subset selection mirrors upstream alexzhang13/rlm `_build_dataset` so a fixed-N
+    # eval draws the SAME examples as the HF eval-picture run: stream + shuffle(seed,
+    # buffer_size=10_000), then take the first N matching (HF's RNG — a plain
+    # random.Random(seed).shuffle picks a different subset). Full set = all matching +
+    # seeded shuffle.
     if num_examples and num_examples > 0:
-        rows = rows[:num_examples]
+        stream = load_dataset("oolongbench/oolong-synth", split=split, streaming=True)
+        if seed is not None:
+            stream = stream.shuffle(seed=seed, buffer_size=10_000)
+        rows: list[dict[str, Any]] = []
+        for ex in stream:
+            e = dict(ex)
+            if _keep(e):
+                rows.append(e)
+                if len(rows) >= num_examples:
+                    break
+    else:
+        ds = load_dataset("oolongbench/oolong-synth", split=split)
+        rows = [dict(ex) for ex in ds if _keep(dict(ex))]
+        if seed is not None:
+            random.Random(seed).shuffle(rows)
 
     out: list[dict[str, Any]] = []
     for i, s in enumerate(rows):
@@ -230,7 +245,6 @@ def load_environment(
     seed: int = 42,
     filter_numerical: bool = True,
     split: str = "validation",
-    shuffle: bool = False,
     max_iterations: int = 20,
     sub_max_tokens: int = 4096,
     min_iterations: int = 2,
@@ -252,7 +266,6 @@ def load_environment(
         seed=seed,
         filter_numerical=filter_numerical,
         split=split,
-        shuffle=shuffle,
     )
     rubric = _build_rubric(
         _score_oolong,

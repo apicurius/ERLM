@@ -167,7 +167,6 @@ def _build_oolong_pairs_dataset(
     question_ids: str | list[str] | None = None,
     num_examples: int = -1,
     seed: int = 42,
-    shuffle: bool = False,
 ) -> Dataset:
     lens = [int(x) for x in _as_list(context_len)] or [32768]
     allowed_ids = {str(x) for x in _as_list(question_ids)} if question_ids is not None else None
@@ -203,7 +202,9 @@ def _build_oolong_pairs_dataset(
                     "info": json.dumps(meta),
                 }
             )
-    if shuffle:
+    # Seeded shuffle before truncation so a fixed-N eval draws a representative
+    # subset, not a biased first-N slice of the questions file.
+    if seed is not None:
         random.Random(seed).shuffle(rows)
     if num_examples and num_examples > 0:
         rows = rows[:num_examples]
@@ -216,7 +217,6 @@ def load_environment(
     question_ids: str | list[str] | None = None,
     num_examples: int = -1,
     seed: int = 42,
-    shuffle: bool = False,
     max_iterations: int = 20,
     sub_max_tokens: int = 4096,
     min_iterations: int = 2,
@@ -236,7 +236,6 @@ def load_environment(
         question_ids=question_ids,
         num_examples=num_examples,
         seed=seed,
-        shuffle=shuffle,
     )
     rubric = _build_rubric(
         _score_oolong_pairs,
