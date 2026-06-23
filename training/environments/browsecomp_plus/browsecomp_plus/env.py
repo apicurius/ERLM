@@ -13,6 +13,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
 import random
 import re
 from typing import Any
@@ -23,6 +24,24 @@ from datasets import Dataset, load_dataset
 import rlm_train
 
 PLAN_HINT = "Plan before you act."
+
+# Lazily-built dedicated OpenAI-compatible client for external judge models
+# (e.g. judge_model="openai/gpt-4.1"). The rollout client in state["client"]
+# only serves the LOCAL inference model, so routing an external judge model
+# through it fails; this client talks to the real provider instead.
+_OPENAI_JUDGE_CLIENT = None
+
+
+def _get_openai_judge_client():
+    global _OPENAI_JUDGE_CLIENT
+    if _OPENAI_JUDGE_CLIENT is None:
+        from openai import AsyncOpenAI
+
+        _OPENAI_JUDGE_CLIENT = AsyncOpenAI(
+            api_key=os.environ.get("OPENAI_API_KEY"),
+            base_url=os.environ.get("OPENAI_BASE_URL") or None,
+        )
+    return _OPENAI_JUDGE_CLIENT
 
 # Public canary from the Tevatron/browsecomp-plus dataset card (XOR key seed).
 _BCP_CANARY = (
@@ -219,10 +238,26 @@ def _make_browsecomp_plus_judge_score(judge_model: str | None = None):
             response=final,
             answer=str(meta.get("answer", "")),
         )
+        model = str(judge_model or state.get("model") or "")
+        # External judge (e.g. "openai/gpt-4.1"): route to the real provider via a
+        # dedicated client, NOT the local rollout client (which can't serve it).
+        if model.startswith("openai/") and os.environ.get("OPENAI_API_KEY"):
+            jm = model.split("/", 1)[1]
+            try:
+                oc = _get_openai_judge_client()
+                resp = await oc.chat.completions.create(
+                    model=jm,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.0,
+                    max_tokens=256,
+                )
+                raw = resp.choices[0].message.content or ""
+            except Exception:
+                return await _score_browsecomp_plus(info, state, **_kw)
+            return 1.0 if _parse_bcp_judge_correct(raw) else 0.0
         client = state.get("client")
         if client is None:
             return await _score_browsecomp_plus(info, state, **_kw)
-        model = str(judge_model or state.get("model") or "")
         try:
             response = await client.get_response(
                 prompt=[{"role": "user", "content": prompt}],

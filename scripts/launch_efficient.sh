@@ -11,4 +11,7 @@ CFG="${1:-training/configs/rlm-qwen3-30b-efficient.toml}"
 export RLM_TRAIN_EXEC_TIMEOUT_S="${RLM_TRAIN_EXEC_TIMEOUT_S:-180}"
 
 echo "Launching efficient RLM RL: $CFG (RLM_TRAIN_EXEC_TIMEOUT_S=$RLM_TRAIN_EXEC_TIMEOUT_S)"
-exec uv run rl @ "$CFG"
+# --no-sync: never re-resolve/re-sync at launch. A plain `uv run` re-syncs from the
+# lock and WIPES the editable installs of the env packages (oolong, etc.) + vendored
+# deps, breaking the run. Run from the prime-rl project dir so uv finds its venv.
+exec uv run --no-sync rl @ "$CFG"
