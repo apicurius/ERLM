@@ -1,5 +1,16 @@
 # A stronger thesis for RLM scaffold training
 
+> **Status & layout.** This file is the condensed research-claim / proposal; the
+> full master's thesis that expands it lives in [`thesis/`](thesis/README.md)
+> (chaptered Markdown, ~25k words). This file is also the document validated by
+> `tools/validate_thesis_shaping.py`.
+>
+> **Canonical constants.** The A/B configs **and** the invariant tests
+> (`training/tests/test_efficiency_shaping.py`) use `subcall_budget = 32`
+> (tightened from an earlier `64` "for a stronger efficiency signal") and
+> `token_budget = 200000`. The worked example throughout is `1.1721` vs `1.0242`
+> (a `3/3/35k` vs `18/30/160k` correct rollout at `λ = 0.2`).
+
 ## Where the authors stopped
 
 The released RLM scaffold (`mit-oasys/rlm-qwen3-30b-a3b-v0.1`) and the upstream
@@ -138,7 +149,7 @@ turn out to be inseparable under this objective.
 
 ## Uncertainties the deep dive must resolve
 
-- **Best `λ` and budgets:** `λ=0.2`, `subcall_budget=64`, and
+- **Best `λ` and budgets:** `λ=0.2`, `subcall_budget=32`, and
   `token_budget=200000` are starting values, not established optima.
 - **Token telemetry coverage:** sub-LLM token cost depends on provider/client
   usage metadata. When token usage is missing, turns and sub-call counts remain

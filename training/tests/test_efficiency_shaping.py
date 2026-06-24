@@ -61,7 +61,7 @@ def test_parity_with_stock_rubric_when_coef_zero():
         correctness=_correct(1.0),
         min_iterations=2,
         shaping_coef=0.0,
-        subcall_budget=64.0,
+        subcall_budget=32.0,
         token_budget=200_000.0,
     )
     st = _state()
@@ -76,7 +76,7 @@ def test_parity_holds_for_partial_correctness():
         correctness=_correct(0.5),
         min_iterations=2,
         shaping_coef=0.5,
-        subcall_budget=64.0,
+        subcall_budget=32.0,
     )
     st = _state()
     # 0.5 < correct_threshold(1.0) -> no bonus even with coef>0.
@@ -92,7 +92,7 @@ def test_no_bonus_for_incorrect_rollout():
         correctness=_correct(0.0),
         min_iterations=2,
         shaping_coef=0.5,
-        subcall_budget=64.0,
+        subcall_budget=32.0,
     )
     # Cheap-but-wrong: zero usage would maximize e, but base=0 -> reward stays 0.
     st = _state(iters=1, sub_calls=0, tokens=0, final="wrong")
@@ -105,7 +105,7 @@ def test_bonus_applied_for_correct_rollout():
         min_iterations=2,
         shaping_coef=0.5,
         max_iterations=20,
-        subcall_budget=64.0,
+        subcall_budget=32.0,
         token_budget=200_000.0,
     )
     st = _state(iters=2, sub_calls=2, tokens=1000)
@@ -117,14 +117,14 @@ def test_structural_caps_leave_correctness_only_rollouts_tied():
     """Caps stop runaway rollouts; they do not credit-assign thrift.
 
     Both states satisfy the configured ceilings used in the thesis configs:
-    max_iterations=20, subcall_budget=64, token_budget=200k. Under the stock
+    max_iterations=20, subcall_budget=32, token_budget=200k. Under the stock
     correctness-only reward they are indistinguishable even though the second
-    rollout spends 6x turns, 18x calls, and >4x tokens.
+    rollout spends 6x turns, 10x calls, and >4x tokens.
     """
 
     stock = RLMTrainRubric(correctness=_correct(1.0), min_iterations=2)
     cheap = _state(iters=3, sub_calls=3, tokens=35_000)
-    expensive = _state(iters=18, sub_calls=54, tokens=160_000)
+    expensive = _state(iters=18, sub_calls=30, tokens=160_000)
     assert asyncio.run(_call(_main_func(stock), cheap)) == 1.0
     assert asyncio.run(_call(_main_func(stock), expensive)) == 1.0
 
@@ -137,16 +137,16 @@ def test_efficiency_reward_separates_cap_satisfying_correct_rollouts():
         min_iterations=2,
         shaping_coef=0.2,
         max_iterations=20,
-        subcall_budget=64.0,
+        subcall_budget=32.0,
         token_budget=200_000.0,
     )
     cheap = _state(iters=3, sub_calls=3, tokens=35_000)
-    expensive = _state(iters=18, sub_calls=54, tokens=160_000)
+    expensive = _state(iters=18, sub_calls=30, tokens=160_000)
     cheap_reward = asyncio.run(_call(_main_func(shaped), cheap))
     expensive_reward = asyncio.run(_call(_main_func(shaped), expensive))
     assert cheap_reward > expensive_reward > 1.0
-    assert cheap_reward == pytest.approx(1.1752083333)
-    assert expensive_reward == pytest.approx(1.0304166667)
+    assert cheap_reward == pytest.approx(1.1720833333)
+    assert expensive_reward == pytest.approx(1.0241666667)
 
 
 # --- Dominance --------------------------------------------------------------
@@ -157,17 +157,17 @@ def test_correct_always_beats_incorrect():
         correctness=_correct(1.0),
         min_iterations=2,
         shaping_coef=0.9,
-        subcall_budget=64.0,
+        subcall_budget=32.0,
     )
     wrong = EfficiencyGatedRubric(
         correctness=_correct(0.0),
         min_iterations=2,
         shaping_coef=0.9,
-        subcall_budget=64.0,
+        subcall_budget=32.0,
     )
     # Correct but maximally expensive vs. wrong but maximally cheap.
     r_correct = asyncio.run(
-        _call(_main_func(shaped), _state(iters=20, sub_calls=64, tokens=200_000))
+        _call(_main_func(shaped), _state(iters=20, sub_calls=32, tokens=200_000))
     )
     r_wrong = asyncio.run(_call(_main_func(wrong), _state(iters=1, sub_calls=0, tokens=0)))
     assert r_correct >= r_wrong
@@ -182,7 +182,7 @@ def test_more_usage_never_pays():
         min_iterations=2,
         shaping_coef=0.5,
         max_iterations=20,
-        subcall_budget=64.0,
+        subcall_budget=32.0,
         token_budget=200_000.0,
     )
     cheap = asyncio.run(_call(_main_func(shaped), _state(iters=2, sub_calls=2, tokens=1000)))
@@ -201,7 +201,7 @@ def test_reward_is_bounded():
         min_iterations=2,
         shaping_coef=coef,
         iteration_weight=0.0,
-        subcall_budget=64.0,
+        subcall_budget=32.0,
         token_budget=200_000.0,
     )
     # Iteration axis disabled; pass the gate (iters>=2) with zero sub-call/token
@@ -217,10 +217,10 @@ def test_reward_never_exceeds_bound_under_any_usage():
         min_iterations=2,
         shaping_coef=coef,
         max_iterations=20,
-        subcall_budget=64.0,
+        subcall_budget=32.0,
         token_budget=200_000.0,
     )
-    for iters, sub_calls, tokens in [(2, 0, 0), (5, 10, 5000), (20, 64, 200_000)]:
+    for iters, sub_calls, tokens in [(2, 0, 0), (5, 10, 5000), (20, 32, 200_000)]:
         r = asyncio.run(
             _call(_main_func(shaped), _state(iters=iters, sub_calls=sub_calls, tokens=tokens))
         )
@@ -256,7 +256,7 @@ def test_bonus_requires_passing_iteration_gate():
         correctness=_correct(1.0),
         min_iterations=3,
         shaping_coef=0.5,
-        subcall_budget=64.0,
+        subcall_budget=32.0,
     )
     # iters=1 < min_iterations=3 -> gate fails -> no bonus, base correctness kept.
     st = _state(iters=1, sub_calls=2, tokens=100)
@@ -271,7 +271,7 @@ def test_efficiency_metrics_exposed():
         correctness=_correct(1.0),
         min_iterations=2,
         shaping_coef=0.5,
-        subcall_budget=64.0,
+        subcall_budget=32.0,
         token_budget=200_000.0,
     )
     names = {getattr(f, "__name__", "") for f in shaped.funcs}
